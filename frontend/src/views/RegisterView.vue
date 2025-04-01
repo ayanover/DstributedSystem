@@ -69,8 +69,11 @@
           <p class="text-sm text-red-600 font-medium">Please fix the following issues:</p>
           <ul class="mt-1 text-sm text-red-600 list-disc list-inside">
             <li v-if="!isPasswordLengthValid">Password must be at least 8 characters long</li>
-            <li v-if="isPasswordOnlyNumbers">Password cannot contain only numbers</li>
+            <li v-if="isPasswordOnlyNumbers">Password cannot consist of only numbers</li>
             <li v-if="!doPasswordsMatch">Passwords do not match</li>
+            <li v-for="(errors, field) in serverErrors" :key="field">
+              <span v-for="(error, index) in errors" :key="index">{{ error }}</span>
+            </li>
             <li v-if="errorMessage">{{ errorMessage }}</li>
           </ul>
         </div>
@@ -117,6 +120,7 @@ const password1 = ref('');
 const password2 = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
+const serverErrors = ref<Record<string, string[]>>({});
 
 const isPasswordLengthValid = ref(true);
 const isPasswordOnlyNumbers = ref(false);
@@ -126,7 +130,8 @@ const hasErrors = computed(() => {
   return !isPasswordLengthValid.value ||
          isPasswordOnlyNumbers.value ||
          !doPasswordsMatch.value ||
-         errorMessage.value !== '';
+         errorMessage.value !== '' ||
+         Object.keys(serverErrors.value).length > 0;
 });
 
 const validatePasswords = () => {
@@ -141,6 +146,10 @@ const validatePasswords = () => {
 
   if (errorMessage.value) {
     errorMessage.value = '';
+  }
+
+  if (Object.keys(serverErrors.value).length > 0) {
+    serverErrors.value = {};
   }
 };
 
@@ -164,6 +173,7 @@ const handleRegister = async () => {
   }
 
   errorMessage.value = '';
+  serverErrors.value = {};
 
   try {
     isLoading.value = true;
@@ -179,12 +189,18 @@ const handleRegister = async () => {
 
     if (response.data && response.data.message === 'success') {
       router.push('/login');
+    } else if (response.data && response.data.errors) {
+      serverErrors.value = response.data.errors;
     } else {
       errorMessage.value = 'Registration failed. Please try again.';
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error);
-    errorMessage.value = 'Failed to register. Please try again.';
+    if (error.response && error.response.data && error.response.data.errors) {
+      serverErrors.value = error.response.data.errors;
+    } else {
+      errorMessage.value = 'Failed to register. Please try again.';
+    }
   } finally {
     isLoading.value = false;
   }
