@@ -12,13 +12,14 @@ def me(request):
         'is_staff': request.user.is_staff,
     })
 
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([])
 def register(request):
     data = request.data
-    print(data)
     message = 'success'
+    errors = {}
 
     form = SignupForm({
         'email': data.get('email'),
@@ -27,11 +28,20 @@ def register(request):
         'password2': data.get('password2'),
     })
 
+    password = data.get('password1', '')
+    if password and password.isdigit():
+        if not 'password1' in form.errors:
+            form.errors['password1'] = []
+        form.errors['password1'].append('Password cannot consist of only numbers.')
+
     if form.is_valid():
         form.save()
-
+        return JsonResponse({'message': message})
     else:
-        print(form.errors)
-        message = 'error'
+        for field, error_list in form.errors.items():
+            errors[field] = [str(error) for error in error_list]
 
-    return JsonResponse({'message':message})
+        return JsonResponse({
+            'message': 'error',
+            'errors': errors
+        })
