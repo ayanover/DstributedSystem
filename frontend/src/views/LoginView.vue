@@ -99,6 +99,8 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
+import axios from "axios";
+
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -114,12 +116,18 @@ const handleLogin = async () => {
     isLoading.value = true;
     errorMessage.value = '';
 
-    await userStore.login({
+    const response = await axios.post('/api/login/', {
       email: email.value,
       password: password.value
-    });
+    })
 
-    router.push('/dashboard');
+    userStore.setToken(response.data)
+    console.log(response.data)
+    axios.defaults.headers.common["Authorization"] = "Bearer " + response.data.access
+    const userResponse = await axios.get('/api/me/')
+    userStore.setUserInfo(userResponse.data)
+
+    router.push('/');
   } catch (error) {
     errorMessage.value = userStore.error || 'Login failed. Please try again.';
   } finally {

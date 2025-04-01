@@ -9,6 +9,19 @@
       <form class="mt-8 space-y-6" @submit.prevent="handleRegister">
         <div class="rounded-md shadow-sm -space-y-px">
           <div>
+            <label for="name" class="sr-only">Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              required
+              v-model="name"
+              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Full name"
+            />
+          </div>
+          <div>
             <label for="email-address" class="sr-only">Email address</label>
             <input
               id="email-address"
@@ -17,7 +30,7 @@
               autocomplete="email"
               required
               v-model="email"
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               placeholder="Email address"
             />
           </div>
@@ -30,6 +43,7 @@
               autocomplete="new-password"
               required
               v-model="password1"
+              @input="validatePasswords"
               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               placeholder="Password"
             />
@@ -43,10 +57,22 @@
               autocomplete="new-password"
               required
               v-model="password2"
+              @input="validatePasswords"
               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               placeholder="Confirm Password"
             />
           </div>
+        </div>
+
+        <!-- Error display window -->
+        <div v-if="hasErrors" class="p-3 rounded-md bg-red-50 border border-red-200">
+          <p class="text-sm text-red-600 font-medium">Please fix the following issues:</p>
+          <ul class="mt-1 text-sm text-red-600 list-disc list-inside">
+            <li v-if="!isPasswordLengthValid">Password must be at least 8 characters long</li>
+            <li v-if="isPasswordOnlyNumbers">Password cannot contain only numbers</li>
+            <li v-if="!doPasswordsMatch">Passwords do not match</li>
+            <li v-if="errorMessage">{{ errorMessage }}</li>
+          </ul>
         </div>
 
         <div>
@@ -61,11 +87,6 @@
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </span>
-            <span v-else class="absolute left-0 inset-y-0 flex items-center pl-3">
-              <svg class="h-5 w-5 text-indigo-500 group-hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
-              </svg>
-            </span>
             Register
           </button>
         </div>
@@ -75,17 +96,9 @@
         <p class="text-sm text-gray-600">
           Already have an account?
           <router-link to="/login" class="font-medium text-indigo-600 hover:text-indigo-500">
-            Sign in here
+            Sign in
           </router-link>
         </p>
-      </div>
-
-      <div v-if="errorMessage" class="mt-4 text-center text-sm text-red-600">
-        {{ errorMessage }}
-      </div>
-
-      <div v-if="password1 && password2 && password1 !== password2" class="mt-4 text-center text-sm text-red-600">
-        Passwords do not match
       </div>
     </div>
   </div>
@@ -94,45 +107,84 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/stores/userStore';
+import axios from 'axios';
 
 const router = useRouter();
-const userStore = useUserStore();
 
+const name = ref('');
 const email = ref('');
 const password1 = ref('');
 const password2 = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
 
+const isPasswordLengthValid = ref(true);
+const isPasswordOnlyNumbers = ref(false);
+const doPasswordsMatch = ref(true);
+
+const hasErrors = computed(() => {
+  return !isPasswordLengthValid.value ||
+         isPasswordOnlyNumbers.value ||
+         !doPasswordsMatch.value ||
+         errorMessage.value !== '';
+});
+
+const validatePasswords = () => {
+  isPasswordLengthValid.value = password1.value.length === 0 || password1.value.length >= 8;
+
+  isPasswordOnlyNumbers.value = password1.value.length > 0 && /^\d+$/.test(password1.value);
+
+  doPasswordsMatch.value =
+    password1.value.length === 0 ||
+    password2.value.length === 0 ||
+    password1.value === password2.value;
+
+  if (errorMessage.value) {
+    errorMessage.value = '';
+  }
+};
+
 const isFormValid = computed(() => {
   return (
+    name.value.trim() !== '' &&
     email.value.trim() !== '' &&
     password1.value.trim() !== '' &&
     password2.value.trim() !== '' &&
-    password1.value === password2.value
+    password1.value === password2.value &&
+    password1.value.length >= 8 &&
+    !/^\d+$/.test(password1.value)
   );
 });
 
 const handleRegister = async () => {
+  validatePasswords();
+
   if (!isFormValid.value) {
     return;
   }
 
+  errorMessage.value = '';
+
   try {
     isLoading.value = true;
-    errorMessage.value = '';
 
-    await userStore.register({
+    const response = await axios.post('/api/register/', {
+      name: name.value,
       email: email.value,
-      password: password1.value
+      password1: password1.value,
+      password2: password2.value
     });
 
-    router.push('/login');
+    console.log(response.data);
+
+    if (response.data && response.data.message === 'success') {
+      router.push('/login');
+    } else {
+      errorMessage.value = 'Registration failed. Please try again.';
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Failed to register. Please try again.';
+    console.error('Registration error:', error);
+    errorMessage.value = 'Failed to register. Please try again.';
   } finally {
     isLoading.value = false;
   }

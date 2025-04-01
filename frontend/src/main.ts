@@ -9,6 +9,9 @@ import router from './router'
 
 const app = createApp(App)
 
+axios.defaults.baseURL = "http://127.0.0.1:8000"
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+
 app.use(createPinia())
 app.use(router, axios)
 
