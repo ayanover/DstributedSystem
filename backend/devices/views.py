@@ -34,11 +34,10 @@ def generate_token(request):
         if admin_key != 'your-admin-secret-key':
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Generate token
+
         token_value = uuid.uuid4().hex
         expires_at = timezone.now() + timedelta(hours=24)
 
-        # Save token
         token = AuthorizationToken.objects.create(
             token=token_value,
             expires_at=expires_at,
@@ -53,6 +52,23 @@ def generate_token(request):
         logger.error(f"Token generation error: {str(e)}")
         return Response({'error': 'Error generating token'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def view_tokens(request):
+    try:
+        tokens = AuthorizationToken.objects.all()  # Get all tokens
+        token_data = []
+
+        for token in tokens:
+            token_data.append({
+                'token': token.token,
+                'expiresAt': token.expires_at.isoformat()
+            })
+
+        return Response(token_data)
+    except Exception as e:
+        logger.error(f"Error fetching tokens: {str(e)}")
+        return Response({'error': 'Error fetching tokens'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

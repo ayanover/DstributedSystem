@@ -16,5 +16,6 @@ urlpatterns = [
     path('commands/<uuid:command_id>/update', views.update_command_status, name='update_command_status'),
 
     path('admin/generate-token', views.generate_token, name='generate_token'),
+    path('admin/tokens', views.view_tokens, name='generate_token'),
     path('server-key', views.get_server_public_key, name='get_server_public_key'),
 ]
