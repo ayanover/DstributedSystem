@@ -11,10 +11,11 @@ urlpatterns = [
     path('execute-command', views.execute_command, name='execute_command'),
     path('commands/<uuid:command_id>', views.get_command_status, name='get_command_status'),
 
-    path('register', views.register_device, name='register_device'),
+    path('register-device/', views.register_device, name='register_device'),
     path('devices/<str:device_id>/pending-commands', views.get_pending_commands, name='get_pending_commands'),
     path('commands/<uuid:command_id>/update', views.update_command_status, name='update_command_status'),
 
     path('admin/generate-token', views.generate_token, name='generate_token'),
+    path('admin/tokens', views.get_active_tokens, name='get_active_tokens'),
     path('server-key', views.get_server_public_key, name='get_server_public_key'),
 ]
