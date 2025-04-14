@@ -2,19 +2,19 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('api/devices', views.get_devices, name='get_devices'),
-    path('api/devices/<str:device_id>/capabilities', views.get_device_capabilities, name='get_device_capabilities'),
-    path('api/devices/<str:device_id>/commands', views.get_device_commands, name='get_device_commands'),
+    path('devices', views.get_devices, name='get_devices'),
+    path('devices/<str:device_id>/capabilities', views.get_device_capabilities, name='get_device_capabilities'),
+    path('devices/<str:device_id>/commands', views.get_device_commands, name='get_device_commands'),
 
-    path('api/actions/<str:action_name>/parameters', views.get_action_parameters, name='get_action_parameters'),
+    path('actions/<str:action_name>/parameters', views.get_action_parameters, name='get_action_parameters'),
 
-    path('api/execute-command', views.execute_command, name='execute_command'),
-    path('api/commands/<uuid:command_id>', views.get_command_status, name='get_command_status'),
+    path('execute-command', views.execute_command, name='execute_command'),
+    path('commands/<uuid:command_id>', views.get_command_status, name='get_command_status'),
 
-    path('api/register', views.register_device, name='register_device'),
-    path('api/devices/<str:device_id>/pending-commands', views.get_pending_commands, name='get_pending_commands'),
-    path('api/commands/<uuid:command_id>/update', views.update_command_status, name='update_command_status'),
+    path('register', views.register_device, name='register_device'),
+    path('devices/<str:device_id>/pending-commands', views.get_pending_commands, name='get_pending_commands'),
+    path('commands/<uuid:command_id>/update', views.update_command_status, name='update_command_status'),
 
-    path('api/admin/generate-token', views.generate_token, name='generate_token'),
-    path('api/server-key', views.get_server_public_key, name='get_server_public_key'),
+    path('admin/generate-token', views.generate_token, name='generate_token'),
+    path('server-key', views.get_server_public_key, name='get_server_public_key'),
 ]

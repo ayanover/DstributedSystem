@@ -1,5 +1,6 @@
-import axios from 'axios'
+
 import type { AxiosResponse } from 'axios'
+import axios from "axios";
 
 export interface Device {
   id: string;
@@ -51,27 +52,20 @@ export interface CommandExecutionResponse {
   commandId: string;
 }
 
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
 
-// API functions
+// axios functions
 export default {
   // Device operations
   getDevices(): Promise<AxiosResponse<{ devices: Device[] }>> {
-    return api.get('/devices')
+    return axios.get('/api/devices')
   },
 
   getDeviceCapabilities(deviceId: string): Promise<AxiosResponse<Device>> {
-    return api.get(`/devices/${deviceId}/capabilities`)
+    return axios.get(`/api/devices/${deviceId}/capabilities`)
   },
 
   getDeviceCommands(deviceId: string): Promise<AxiosResponse<{ commands: Command[] }>> {
-    return api.get(`/devices/${deviceId}/commands`)
+    return axios.get(`/api/devices/${deviceId}/commands`)
   },
 
   // Action operations
@@ -80,7 +74,7 @@ export default {
     parameters: ActionParameter[];
     description: string;
   }>> {
-    return api.get(`/actions/${actionName}/parameters`)
+    return axios.get(`/api/actions/${actionName}/parameters`)
   },
 
   // Command operations
@@ -89,7 +83,7 @@ export default {
     commandName: string,
     params: Record<string, any>
   ): Promise<AxiosResponse<CommandExecutionResponse>> {
-    return api.post('/execute-command', {
+    return axios.post('/api/execute-command', {
       deviceId,
       command: commandName,
       params
@@ -97,25 +91,25 @@ export default {
   },
 
   getCommandStatus(commandId: string): Promise<AxiosResponse<Command>> {
-    return api.get(`/commands/${commandId}`)
+    return axios.get(`/api/commands/${commandId}`)
   },
 
   getAllCommands(): Promise<AxiosResponse<{ commands: Command[] }>> {
-    return api.get('/commands')
+    return axios.get('/api/commands')
   },
 
   generateToken(adminKey: string): Promise<AxiosResponse<{
     token: string;
     expiresAt: string;
   }>> {
-    return api.post('/admin/generate-token', { adminKey })
+    return axios.post('/api/admin/generate-token', { adminKey })
   },
 
   getTokens(): Promise<AxiosResponse<{ tokens: Token[] }>> {
-    return api.get('/admin/tokens')
+    return axios.get('/api/admin/tokens')
   },
 
   getServerPublicKey(): Promise<AxiosResponse<{ publicKey: string }>> {
-    return api.get('/server-key')
+    return axios.get('/api/server-key')
   }
 }

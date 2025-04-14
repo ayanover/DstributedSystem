@@ -5,9 +5,12 @@ from datetime import timedelta
 
 from django.utils import timezone
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_GET
 from django.shortcuts import get_object_or_404
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
 
 from .models import Device, AuthorizationToken, Command, ActionParameter
 from .crypto import (
@@ -18,8 +21,8 @@ from .crypto import (
 
 logger = logging.getLogger(__name__)
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def generate_token(request):
     """Generate a new authorization token for device registration"""
     try:
@@ -29,7 +32,7 @@ def generate_token(request):
         # In production, use a proper authentication mechanism
         # This is just a simple example
         if admin_key != 'your-admin-secret-key':
-            return JsonResponse({'error': 'Unauthorized'}, status=403)
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
         # Generate token
         token_value = uuid.uuid4().hex
@@ -42,17 +45,17 @@ def generate_token(request):
             created_by=request.META.get('REMOTE_ADDR')
         )
 
-        return JsonResponse({
+        return Response({
             'token': token_value,
             'expiresAt': expires_at.isoformat()
         })
     except Exception as e:
         logger.error(f"Token generation error: {str(e)}")
-        return JsonResponse({'error': 'Error generating token'}, status=500)
+        return Response({'error': 'Error generating token'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def register_device(request):
     """Register a new device using an authorization token"""
     try:
@@ -60,7 +63,7 @@ def register_device(request):
         encrypted_data = data.get('data')
 
         if not encrypted_data:
-            return JsonResponse({'error': 'Missing encrypted data'}, status=400)
+            return Response({'error': 'Missing encrypted data'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Decrypt the registration data
         registration_data = decrypt_with_private_key(encrypted_data)
@@ -72,9 +75,9 @@ def register_device(request):
         try:
             token = AuthorizationToken.objects.get(token=auth_token)
             if not token.is_valid:
-                return JsonResponse({'error': 'Invalid or expired token'}, status=403)
+                return Response({'error': 'Invalid or expired token'}, status=status.HTTP_403_FORBIDDEN)
         except AuthorizationToken.DoesNotExist:
-            return JsonResponse({'error': 'Invalid token'}, status=403)
+            return Response({'error': 'Invalid token'}, status=status.HTTP_403_FORBIDDEN)
 
         # Extract device information
         device_id = device_info.get('deviceId')
@@ -114,14 +117,15 @@ def register_device(request):
         encrypted_response = encrypt_with_public_key(response_data, public_key)
 
         logger.info(f"Device registered: {device_id} ({metadata.get('type')})")
-        return JsonResponse(encrypted_response, safe=False)
+        return Response(encrypted_response, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
-        return JsonResponse({'error': 'Registration failed'}, status=500)
+        return Response({'error': 'Registration failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_devices(request):
     """API to get list of registered devices"""
     devices = Device.objects.filter(is_active=True)
@@ -136,26 +140,28 @@ def get_devices(request):
             'lastSeen': device.last_seen.isoformat()
         })
 
-    return JsonResponse({'devices': device_list})
+    return Response({'devices': device_list})
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_device_capabilities(request, device_id):
     """Get capabilities for a specific device"""
     try:
         device = get_object_or_404(Device, device_id=device_id, is_active=True)
 
-        return JsonResponse({
+        return Response({
             'deviceId': device.device_id,
             'deviceType': device.device_type,
             'capabilities': device.capabilities
         })
     except Exception as e:
         logger.error(f"Error getting device capabilities: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=404)
+        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_action_parameters(request, action_name):
     """Get required parameters for a specific action"""
     try:
@@ -163,7 +169,7 @@ def get_action_parameters(request, action_name):
         action_param = ActionParameter.objects.filter(action_name=action_name).first()
 
         if action_param:
-            return JsonResponse({
+            return Response({
                 'action': action_name,
                 'parameters': action_param.parameters,
                 'description': action_param.description
@@ -182,18 +188,18 @@ def get_action_parameters(request, action_name):
                 {"name": "num1", "type": "number", "required": True}
             ]
 
-        return JsonResponse({
+        return Response({
             'action': action_name,
             'parameters': default_params,
             'description': f"Execute {action_name} operation"
         })
     except Exception as e:
         logger.error(f"Error getting action parameters: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def execute_command(request):
     """Execute a command on a device"""
     try:
@@ -204,19 +210,19 @@ def execute_command(request):
 
         # Validate required fields
         if not device_id or not command_name:
-            return JsonResponse({'error': 'Missing required fields'}, status=400)
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get the device
         try:
             device = Device.objects.get(device_id=device_id, is_active=True)
         except Device.DoesNotExist:
-            return JsonResponse({'error': 'Device not found'}, status=404)
+            return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Validate the command is supported by the device
         if command_name not in device.capabilities:
-            return JsonResponse({
+            return Response({
                 'error': f"Command '{command_name}' not supported by this device"
-            }, status=400)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create the command
         command = Command.objects.create(
@@ -230,23 +236,24 @@ def execute_command(request):
         # For now, we'll just return the command ID
         logger.info(f"Command {command_name} created for device {device_id}")
 
-        return JsonResponse({
+        return Response({
             'status': 'Command queued',
             'commandId': str(command.id)
         })
 
     except Exception as e:
         logger.error(f"Execute command error: {str(e)}")
-        return JsonResponse({'error': 'Error processing command'}, status=500)
+        return Response({'error': 'Error processing command'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_command_status(request, command_id):
     """Get the status of a command"""
     try:
         command = get_object_or_404(Command, id=command_id)
 
-        return JsonResponse({
+        return Response({
             'id': str(command.id),
             'deviceId': command.device.device_id,
             'name': command.name,
@@ -258,11 +265,11 @@ def get_command_status(request, command_id):
         })
     except Exception as e:
         logger.error(f"Error getting command status: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=404)
+        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
 
-@csrf_exempt
-@require_POST
+@api_view(['POST'])
+@permission_classes([AllowAny])  # Devices might not have authentication
 def update_command_status(request, command_id):
     """Update the status and result of a command (called by device)"""
     try:
@@ -272,19 +279,19 @@ def update_command_status(request, command_id):
 
         # Validate required fields
         if not device_id or not encrypted_data:
-            return JsonResponse({'error': 'Missing required fields'}, status=400)
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get the device
         try:
             device = Device.objects.get(device_id=device_id, is_active=True)
         except Device.DoesNotExist:
-            return JsonResponse({'error': 'Device not found'}, status=404)
+            return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Get the command
         try:
             command = Command.objects.get(id=command_id, device=device)
         except Command.DoesNotExist:
-            return JsonResponse({'error': 'Command not found'}, status=404)
+            return Response({'error': 'Command not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Decrypt the result data
         from .crypto import decrypt_with_session_key
@@ -298,13 +305,14 @@ def update_command_status(request, command_id):
 
         logger.info(f"Command {command_id} updated to {status}")
 
-        return JsonResponse({'status': 'Command updated'})
+        return Response({'status': 'Command updated'})
     except Exception as e:
         logger.error(f"Update command error: {str(e)}")
-        return JsonResponse({'error': 'Error updating command'}, status=500)
+        return Response({'error': 'Error updating command'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_device_commands(request, device_id):
     """Get all commands for a specific device"""
     try:
@@ -323,25 +331,27 @@ def get_device_commands(request, device_id):
                 'updatedAt': command.updated_at.isoformat()
             })
 
-        return JsonResponse({'commands': command_list})
+        return Response({'commands': command_list})
     except Exception as e:
         logger.error(f"Error getting device commands: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=404)
+        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def get_server_public_key(request):
     """Return the server's public key"""
     try:
-        return JsonResponse({
+        return Response({
             'publicKey': get_server_public_key_pem()
         })
     except Exception as e:
         logger.error(f"Error getting server public key: {str(e)}")
-        return JsonResponse({'error': 'Error retrieving public key'}, status=500)
+        return Response({'error': 'Error retrieving public key'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@require_GET
+@api_view(['GET'])
+@permission_classes([AllowAny])  # Devices might not have authentication
 def get_pending_commands(request, device_id):
     """Get pending commands for a device (called by device)"""
     try:
@@ -360,7 +370,7 @@ def get_pending_commands(request, device_id):
                 'params': command.params
             })
 
-        return JsonResponse({'commands': command_list})
+        return Response({'commands': command_list})
     except Exception as e:
         logger.error(f"Error getting pending commands: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=404)
+        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)

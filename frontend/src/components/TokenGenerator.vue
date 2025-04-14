@@ -287,6 +287,7 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue';
 import api from '@/api';
+import axios from "axios";
 
 interface Token {
   token: string;
@@ -319,6 +320,7 @@ export default defineComponent({
 
       try {
         const response = await api.generateToken(adminKey.value);
+        console.log(response.data)
         newToken.value = response.data;
         adminKey.value = ''; // Clear admin key
 
