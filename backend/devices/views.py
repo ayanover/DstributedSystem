@@ -70,6 +70,44 @@ def view_tokens(request):
         logger.error(f"Error fetching tokens: {str(e)}")
         return Response({'error': 'Error fetching tokens'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_active_tokens(request):
+    """
+    Zwraca listę wszystkich aktywnych tokenów autoryzacyjnych
+    (tokeny, które nie wygasły i nie zostały jeszcze użyte)
+    """
+    try:
+        # Pobierz wszystkie tokeny, które są aktywne
+        active_tokens = AuthorizationToken.objects.filter(
+            is_used=False,
+            expires_at__gt=timezone.now()
+        ).order_by('-created_at')
+
+        # Przygotuj dane w formacie JSON bez używania serializera
+        tokens_data = []
+        for token in active_tokens:
+            tokens_data.append({
+                'token': token.token,
+                'createdAt': token.created_at.isoformat(),
+                'expiresAt': token.expires_at.isoformat(),
+                'isUsed': token.is_used,
+                'isValid': token.is_valid,
+                'createdBy': token.created_by
+            })
+
+        return Response({
+            'count': len(tokens_data),
+            'tokens': tokens_data
+        })
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania aktywnych tokenów: {str(e)}")
+        return Response(
+            {'error': 'Wystąpił błąd podczas pobierania listy aktywnych tokenów'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_device(request):
