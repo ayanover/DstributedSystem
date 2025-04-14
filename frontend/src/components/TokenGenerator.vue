@@ -1,9 +1,7 @@
-// src/components/TokenGenerator.vue
 <template>
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-2xl font-bold text-gray-900 mb-6">Authorization Tokens</h1>
 
-    <!-- Token Generator Card -->
     <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
       <div class="px-4 py-5 sm:px-6 bg-gradient-to-r from-indigo-600 to-indigo-700">
         <h3 class="text-lg leading-6 font-medium text-white">Generate New Token</h3>

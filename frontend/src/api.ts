@@ -1,4 +1,5 @@
-import axios, { AxiosResponse } from 'axios'
+import axios from 'axios'
+import type { AxiosResponse } from 'axios'
 
 export interface Device {
   id: string;
@@ -52,7 +53,7 @@ export interface CommandExecutionResponse {
 
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: process.env.VUE_APP_API_URL || '/api',
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -103,7 +104,6 @@ export default {
     return api.get('/commands')
   },
 
-  // Token operations
   generateToken(adminKey: string): Promise<AxiosResponse<{
     token: string;
     expiresAt: string;
@@ -115,7 +115,6 @@ export default {
     return api.get('/admin/tokens')
   },
 
-  // Server information
   getServerPublicKey(): Promise<AxiosResponse<{ publicKey: string }>> {
     return api.get('/server-key')
   }

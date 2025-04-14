@@ -18,11 +18,3 @@ urlpatterns = [
     path('api/admin/generate-token', views.generate_token, name='generate_token'),
     path('api/server-key', views.get_server_public_key, name='get_server_public_key'),
 ]
-
-from django.contrib import admin
-from django.urls import path, include
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('devices.urls')),
-]

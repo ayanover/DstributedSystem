@@ -16,11 +16,7 @@ from .crypto import (
     get_server_public_key_pem
 )
 
-# Configure logging
 logger = logging.getLogger(__name__)
-
-
-# Django views for APIs
 
 @csrf_exempt
 @require_POST
