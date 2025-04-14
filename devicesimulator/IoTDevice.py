@@ -449,7 +449,7 @@ class MathDevice:
         self.running = False
 
         # Try to deregister
-        self.deregister()
+        deregister(self)
 
         logger.info(f"{self.device_type.capitalize()} device stopped")
 
@@ -517,9 +517,9 @@ def main():
 
         # Keep the main thread alive
         try:
-            # Use signal.pause() instead of a while loop
-            # This allows signals to be properly handled
-            signal.pause()
+            # Cross-platform solution instead of signal.pause()
+            while device.running:
+                time.sleep(1)
         except KeyboardInterrupt:
             device.stop()
 
