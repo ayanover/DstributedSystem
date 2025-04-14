@@ -1,128 +1,201 @@
+// src/components/DeviceList.vue
 <template>
-  <div class="device-list">
-    <h1>Connected Devices</h1>
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Connected Devices</h1>
 
-    <div v-if="loading" class="text-center my-5">
-      <div class="spinner-border" role="status">
-        <span class="visually-hidden">Loading...</span>
+    <div v-if="loading" class="flex justify-center my-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+    </div>
+
+    <div v-else-if="error" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">{{ error }}</p>
+        </div>
       </div>
     </div>
 
-    <div v-else-if="error" class="alert alert-danger">
-      {{ error }}
+    <div v-else-if="devices.length === 0" class="bg-blue-50 border-l-4 border-blue-500 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-blue-700">
+            No devices are connected. Generate a token and register a device to get started.
+          </p>
+        </div>
+      </div>
     </div>
 
-    <div v-else-if="devices.length === 0" class="alert alert-info">
-      No devices are connected. Generate a token and register a device to get started.
-    </div>
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-for="device in devices" :key="device.deviceId"
+           class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-lg">
+        <div class="border-b border-gray-200 bg-gray-50 px-4 py-5 sm:px-6 flex justify-between items-center">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">{{ device.deviceType }}</h3>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            {{ formatDate(device.lastSeen) }}
+          </span>
+        </div>
+        <div class="px-4 py-5 sm:p-6">
+          <p class="text-sm text-gray-500 mb-3">
+            <span class="font-medium text-gray-700">ID:</span>
+            <span class="font-mono">{{ device.deviceId.substring(0, 16) }}...</span>
+          </p>
 
-    <div v-else class="row">
-      <div v-for="device in devices" :key="device.deviceId" class="col-md-4 mb-4">
-        <div class="card h-100">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">{{ device.deviceType }}</h5>
-            <span class="badge bg-secondary">{{ formatDate(device.lastSeen) }}</span>
-          </div>
-          <div class="card-body">
-            <p class="card-text">Device ID: {{ device.deviceId }}</p>
-            <p class="card-text">
-              <strong>Capabilities:</strong>
+          <div class="mb-4">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Capabilities:</h4>
+            <div class="flex flex-wrap gap-2">
               <span v-for="capability in device.capabilities" :key="capability"
-                    class="badge bg-info me-1">{{ capability }}</span>
-            </p>
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
+                {{ capability }}
+              </span>
+            </div>
           </div>
-          <div class="card-footer">
-            <button @click="selectDevice(device)" class="btn btn-primary">
-              Execute Command
-            </button>
-            <router-link :to="'/devices/' + device.deviceId" class="btn btn-outline-secondary ms-2">
-              View History
-            </router-link>
-          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
+          <button @click="selectDevice(device)"
+                  class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            Execute Command
+          </button>
+          <router-link :to="'/devices/' + device.deviceId"
+                      class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            View History
+          </router-link>
         </div>
       </div>
     </div>
 
     <!-- Command Execution Modal -->
-    <div class="modal fade" id="commandModal" tabindex="-1" ref="commandModal">
-      <div class="modal-dialog">
-        <div class="modal-content" v-if="selectedDevice">
-          <div class="modal-header">
-            <h5 class="modal-title">Execute Command on {{ selectedDevice.deviceType }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <!-- Step 1: Select Action -->
-            <div v-if="commandStep === 1">
-              <div class="mb-3">
-                <label class="form-label">Select Action</label>
-                <select v-model="selectedAction" class="form-select" @change="fetchActionParameters">
-                  <option value="">-- Select Action --</option>
-                  <option v-for="capability in selectedDevice.capabilities" :key="capability" :value="capability">
-                    {{ capability }}
-                  </option>
-                </select>
+    <div v-if="modalOpen" class="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="closeModal"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div v-if="selectedDevice" class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div class="sm:flex sm:items-start">
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                  Execute Command on {{ selectedDevice.deviceType }}
+                </h3>
+
+                <!-- Step 1: Select Action -->
+                <div v-if="commandStep === 1" class="mt-4">
+                  <label for="action" class="block text-sm font-medium text-gray-700">Select Action</label>
+                  <select id="action" v-model="selectedAction" @change="fetchActionParameters"
+                          class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="">-- Select Action --</option>
+                    <option v-for="capability in selectedDevice.capabilities" :key="capability" :value="capability">
+                      {{ capability }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Step 2: Enter Parameters -->
+                <div v-else-if="commandStep === 2" class="mt-4">
+                  <div class="bg-gray-50 px-3 py-2 rounded-md mb-4">
+                    <p class="text-sm font-medium text-gray-800">Action: {{ selectedAction }}</p>
+                  </div>
+
+                  <div v-if="actionParameters.length === 0" class="bg-blue-50 p-4 rounded-md">
+                    <div class="flex">
+                      <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <div class="ml-3">
+                        <p class="text-sm text-blue-700">Loading parameters...</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <form @submit.prevent="executeCommand" v-else>
+                    <div v-for="param in actionParameters" :key="param.name" class="mb-4">
+                      <label :for="param.name" class="block text-sm font-medium text-gray-700">{{ param.name }}</label>
+                      <input :type="param.type" :id="param.name"
+                             v-model="paramValues[param.name]" :required="param.required"
+                             class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                      <p v-if="param.description" class="mt-1 text-xs text-gray-500">{{ param.description }}</p>
+                    </div>
+                  </form>
+                </div>
+
+                <!-- Step 3: Result -->
+                <div v-else-if="commandStep === 3" class="mt-4">
+                  <div v-if="commandStatus === 'pending'" class="flex justify-center items-center flex-col py-6">
+                    <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+                    <p class="text-sm text-gray-600">Command is being processed...</p>
+                  </div>
+
+                  <div v-else-if="commandStatus === 'completed'" class="bg-green-50 p-4 rounded-md">
+                    <div class="flex">
+                      <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <div class="ml-3">
+                        <h3 class="text-sm font-medium text-green-800">Command Completed</h3>
+                        <div class="mt-2 text-sm text-green-700">
+                          <p><strong>Result:</strong> {{ commandResult?.result }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-else-if="commandStatus === 'failed'" class="bg-red-50 p-4 rounded-md">
+                    <div class="flex">
+                      <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Command Failed</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                          <p><strong>Error:</strong> {{ commandResult?.error }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <!-- Step 2: Enter Parameters -->
-            <div v-else-if="commandStep === 2">
-              <h6>Action: {{ selectedAction }}</h6>
-
-              <div v-if="actionParameters.length === 0" class="alert alert-info">
-                Loading parameters...
-              </div>
-
-              <form @submit.prevent="executeCommand" v-else>
-                <div v-for="param in actionParameters" :key="param.name" class="mb-3">
-                  <label :for="param.name" class="form-label">{{ param.name }}</label>
-                  <input :type="param.type" class="form-control" :id="param.name"
-                         v-model="paramValues[param.name]" :required="param.required">
-                </div>
-              </form>
-            </div>
-
-            <!-- Step 3: Result -->
-            <div v-else-if="commandStep === 3">
-              <div v-if="commandStatus === 'pending'" class="text-center my-3">
-                <div class="spinner-border" role="status">
-                  <span class="visually-hidden">Processing...</span>
-                </div>
-                <p class="mt-2">Command is being processed...</p>
-              </div>
-
-              <div v-else-if="commandStatus === 'completed'" class="alert alert-success">
-                <h6>Command Completed</h6>
-                <p><strong>Result:</strong> {{ commandResult.result }}</p>
-              </div>
-
-              <div v-else-if="commandStatus === 'failed'" class="alert alert-danger">
-                <h6>Command Failed</h6>
-                <p><strong>Error:</strong> {{ commandResult.error }}</p>
-                </div>
-              </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-
-            <button v-if="commandStep === 1" type="button" class="btn btn-primary"
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button v-if="commandStep === 1" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
                     :disabled="!selectedAction" @click="commandStep = 2">
               Next
             </button>
 
-            <button v-if="commandStep === 2" type="button" class="btn btn-secondary"
-                    @click="commandStep = 1">
-              Back
-            </button>
-
-            <button v-if="commandStep === 2" type="button" class="btn btn-primary"
+            <button v-if="commandStep === 2" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
                     @click="executeCommand">
               Execute
             </button>
 
-            <button v-if="commandStep === 3" type="button" class="btn btn-primary"
+            <button v-if="commandStep === 3" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
                     @click="resetCommand">
               New Command
+            </button>
+
+            <button v-if="commandStep === 2" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    @click="commandStep = 1">
+              Back
+            </button>
+
+            <button type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                    @click="closeModal">
+              Close
             </button>
           </div>
         </div>
@@ -131,95 +204,106 @@
   </div>
 </template>
 
-<script>
-import axios from 'axios';
-import { Modal } from 'bootstrap';
+<script lang="ts">
+import { defineComponent, ref, reactive, onMounted, onBeforeUnmount } from 'vue';
+import api from '@/api';
 
-export default {
+interface Device {
+  id: string;
+  deviceId: string;
+  deviceType: string;
+  capabilities: string[];
+  lastSeen: string;
+}
+
+interface ActionParameter {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+}
+
+interface CommandResult {
+  status: 'success' | 'error';
+  result?: any;
+  error?: string;
+}
+
+export default defineComponent({
   name: 'DeviceList',
-  data() {
-    return {
-      devices: [],
-      loading: true,
-      error: null,
-      selectedDevice: null,
-      selectedAction: '',
-      actionParameters: [],
-      paramValues: {},
-      commandStep: 1,
-      commandId: null,
-      commandStatus: null,
-      commandResult: null,
-      modal: null,
-      pollInterval: null
-    };
-  },
-  mounted() {
-    this.fetchDevices();
-  },
-  unmounted() {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-    }
-  },
-  methods: {
-    fetchDevices() {
-      this.loading = true;
-      axios.get('/api/devices')
-        .then(response => {
-          this.devices = response.data.devices;
-          this.loading = false;
-        })
-        .catch(error => {
-          this.error = 'Error loading devices: ' + (error.response?.data?.error || error.message);
-          this.loading = false;
-        });
-    },
+  setup() {
+    // State
+    const devices = ref<Device[]>([]);
+    const loading = ref<boolean>(true);
+    const error = ref<string | null>(null);
+    const selectedDevice = ref<Device | null>(null);
+    const selectedAction = ref<string>('');
+    const actionParameters = ref<ActionParameter[]>([]);
+    const paramValues = reactive<Record<string, any>>({});
+    const commandStep = ref<number>(1);
+    const commandId = ref<string | null>(null);
+    const commandStatus = ref<string | null>(null);
+    const commandResult = ref<CommandResult | null>(null);
+    const modalOpen = ref<boolean>(false);
+    const pollInterval = ref<number | null>(null);
 
-    selectDevice(device) {
-      this.selectedDevice = device;
-      this.selectedAction = '';
-      this.actionParameters = [];
-      this.paramValues = {};
-      this.commandStep = 1;
-      this.commandId = null;
-      this.commandStatus = null;
-      this.commandResult = null;
-
-      // Initialize and show modal
-      if (!this.modal) {
-        this.modal = new Modal(this.$refs.commandModal);
+    // Methods
+    const fetchDevices = async (): Promise<void> => {
+      loading.value = true;
+      try {
+        const response = await api.getDevices();
+        devices.value = response.data.devices;
+      } catch (err: any) {
+        error.value = `Error loading devices: ${err.response?.data?.error || err.message}`;
+      } finally {
+        loading.value = false;
       }
-      this.modal.show();
-    },
+    };
 
-    fetchActionParameters() {
-      if (!this.selectedAction) return;
+    const selectDevice = (device: Device): void => {
+      selectedDevice.value = device;
+      selectedAction.value = '';
+      actionParameters.value = [];
+      Object.keys(paramValues).forEach(key => delete paramValues[key]);
+      commandStep.value = 1;
+      commandId.value = null;
+      commandStatus.value = null;
+      commandResult.value = null;
+      modalOpen.value = true;
+    };
 
-      axios.get(`/api/actions/${this.selectedAction}/parameters`)
-        .then(response => {
-          this.actionParameters = response.data.parameters;
-          this.paramValues = {};
+    const closeModal = (): void => {
+      modalOpen.value = false;
+      stopPolling();
+    };
 
-          // Initialize parameter values
-          this.actionParameters.forEach(param => {
-            this.paramValues[param.name] = '';
-          });
-        })
-        .catch(error => {
-          console.error('Error fetching parameters:', error);
-          this.actionParameters = [
-            { name: 'num1', type: 'number', required: true },
-            { name: 'num2', type: 'number', required: true }
-          ];
+    const fetchActionParameters = async (): Promise<void> => {
+      if (!selectedAction.value) return;
+
+      try {
+        const response = await api.getActionParameters(selectedAction.value);
+        actionParameters.value = response.data.parameters;
+
+        // Initialize parameter values
+        actionParameters.value.forEach(param => {
+          paramValues[param.name] = '';
         });
-    },
+      } catch (err) {
+        console.error('Error fetching parameters:', err);
+        actionParameters.value = [
+          { name: 'num1', type: 'number', required: true },
+          { name: 'num2', type: 'number', required: true }
+        ];
+      }
+    };
 
-    executeCommand() {
+    const executeCommand = async (): Promise<void> => {
+      if (!selectedDevice.value) return;
+
       // Validate parameters
       let valid = true;
-      this.actionParameters.forEach(param => {
-        if (param.required && !this.paramValues[param.name]) {
+      actionParameters.value.forEach(param => {
+        if (param.required && !paramValues[param.name]) {
           valid = false;
         }
       });
@@ -229,70 +313,73 @@ export default {
         return;
       }
 
-      // Create command data
-      const commandData = {
-        deviceId: this.selectedDevice.deviceId,
-        command: this.selectedAction,
-        params: this.paramValues
-      };
+      try {
+        const response = await api.executeCommand(
+          selectedDevice.value.deviceId,
+          selectedAction.value,
+          paramValues
+        );
 
-      // Send command
-      axios.post('/api/execute-command', commandData)
-        .then(response => {
-          this.commandId = response.data.commandId;
-          this.commandStep = 3;
-          this.commandStatus = 'pending';
+        commandId.value = response.data.commandId;
+        commandStep.value = 3;
+        commandStatus.value = 'pending';
 
-          // Start polling for result
-          this.pollCommandStatus();
-        })
-        .catch(error => {
-          alert('Error executing command: ' + (error.response?.data?.error || error.message));
-        });
-    },
-
-    pollCommandStatus() {
-      // Clear any existing interval
-      if (this.pollInterval) {
-        clearInterval(this.pollInterval);
+        // Start polling for result
+        startPolling();
+      } catch (err: any) {
+        alert(`Error executing command: ${err.response?.data?.error || err.message}`);
       }
+    };
+
+    const startPolling = (): void => {
+      // Clear any existing interval
+      stopPolling();
+
+      if (!commandId.value) return;
 
       // Set up polling
-      this.pollInterval = setInterval(() => {
-        axios.get(`/api/commands/${this.commandId}`)
-          .then(response => {
-            const command = response.data;
+      pollInterval.value = window.setInterval(async () => {
+        try {
+          const response = await api.getCommandStatus(commandId.value as string);
+          const command = response.data;
 
-            if (command.status !== 'pending' && command.status !== 'sent') {
-              // Command completed or failed
-              clearInterval(this.pollInterval);
-              this.pollInterval = null;
+          if (command.status !== 'pending' && command.status !== 'sent') {
+            // Command completed or failed
+            stopPolling();
 
-              this.commandStatus = command.status;
-              this.commandResult = command.result;
-            }
-          })
-          .catch(error => {
-            console.error('Error polling command status:', error);
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
+            commandStatus.value = command.status;
+            commandResult.value = command.result;
+          }
+        } catch (err) {
+          console.error('Error polling command status:', err);
+          stopPolling();
 
-            this.commandStatus = 'failed';
-            this.commandResult = { error: 'Error retrieving command status' };
-          });
+          commandStatus.value = 'failed';
+          commandResult.value = {
+            status: 'error',
+            error: 'Error retrieving command status'
+          };
+        }
       }, 2000);  // Poll every 2 seconds
-    },
+    };
 
-    resetCommand() {
-      this.commandStep = 1;
-      this.selectedAction = '';
-      this.paramValues = {};
-      this.commandId = null;
-      this.commandStatus = null;
-      this.commandResult = null;
-    },
+    const stopPolling = (): void => {
+      if (pollInterval.value) {
+        window.clearInterval(pollInterval.value);
+        pollInterval.value = null;
+      }
+    };
 
-    formatDate(dateString) {
+    const resetCommand = (): void => {
+      commandStep.value = 1;
+      selectedAction.value = '';
+      Object.keys(paramValues).forEach(key => delete paramValues[key]);
+      commandId.value = null;
+      commandStatus.value = null;
+      commandResult.value = null;
+    };
+
+    const formatDate = (dateString: string): string => {
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('en-US', {
         month: 'short',
@@ -300,7 +387,38 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       }).format(date);
-    }
+    };
+
+    // Lifecycle hooks
+    onMounted(() => {
+      fetchDevices();
+    });
+
+    onBeforeUnmount(() => {
+      stopPolling();
+    });
+
+    return {
+      devices,
+      loading,
+      error,
+      selectedDevice,
+      selectedAction,
+      actionParameters,
+      paramValues,
+      commandStep,
+      commandId,
+      commandStatus,
+      commandResult,
+      modalOpen,
+      fetchDevices,
+      selectDevice,
+      closeModal,
+      fetchActionParameters,
+      executeCommand,
+      resetCommand,
+      formatDate
+    };
   }
-};
+});
 </script>
