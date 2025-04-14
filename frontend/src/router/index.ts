@@ -6,7 +6,7 @@ import DeviceList from '../components/DeviceList.vue'
 import DeviceDetail from '../components/DeviceDetails.vue'
 import CommandHistory from '../components/CommandHistory.vue'
 import TokenGenerator from '../components/TokenGenerator.vue'
-import RegisterDevice from "@/components/RegisterDevice.vue";
+
 
 
 const router = createRouter({
@@ -43,11 +43,6 @@ const router = createRouter({
       name: 'tokens',
       component: TokenGenerator
     },
-    {
-      path: '/regdev',
-      name: 'regdev',
-      component: RegisterDevice
-    }
   ],
 })
 

@@ -2,11 +2,8 @@ import json
 import uuid
 import logging
 from datetime import timedelta
-
 from django.utils import timezone
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -16,7 +13,7 @@ from .models import Device, AuthorizationToken, Command, ActionParameter
 from .crypto import (
     decrypt_with_private_key,
     encrypt_with_public_key,
-    get_server_public_key_pem
+    get_server_public_key_pem, encrypt_with_session_key, decrypt_with_session_key
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +48,40 @@ def generate_token(request):
     except Exception as e:
         logger.error(f"Token generation error: {str(e)}")
         return Response({'error': 'Error generating token'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def deregister_device(request, device_id):
+    """Mark a device as inactive when it disconnects"""
+    try:
+        data = json.loads(request.body)
+
+        # Validate the device
+        try:
+            device = Device.objects.get(device_id=device_id, is_active=True)
+        except Device.DoesNotExist:
+            return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Optional: Verify encrypted data using session key
+        if 'data' in data:
+            try:
+                encrypted_data = data.get('data')
+                decrypted_data = decrypt_with_session_key(encrypted_data, device.session_key)
+                # You could verify the decrypted data here if needed
+            except Exception as e:
+                logger.warning(f"Error decrypting deregistration data: {str(e)}")
+                # Continue anyway - we still want to deregister
+
+        # Mark the device as inactive
+        device.is_active = False
+        device.save()
+
+        logger.info(f"Device deregistered: {device_id}")
+        return Response({'status': 'Device deregistered'})
+    except Exception as e:
+        logger.error(f"Error deregistering device: {str(e)}")
+        return Response({'error': 'Deregistration failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -109,7 +140,7 @@ def get_active_tokens(request):
         )
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny])  # Allow anonymous access for device registration
 def register_device(request):
     """Register a new device using an authorization token"""
     try:
@@ -118,10 +149,12 @@ def register_device(request):
 
         if not encrypted_data:
             return Response({'error': 'Missing encrypted data'}, status=status.HTTP_400_BAD_REQUEST)
+        logger.info( "encrypted data received")
 
         # Decrypt the registration data
         registration_data = decrypt_with_private_key(encrypted_data)
 
+        # Extract device information
         device_info = registration_data.get('deviceInfo', {})
         auth_token = registration_data.get('authToken')
 
@@ -132,12 +165,12 @@ def register_device(request):
                 return Response({'error': 'Invalid or expired token'}, status=status.HTTP_403_FORBIDDEN)
         except AuthorizationToken.DoesNotExist:
             return Response({'error': 'Invalid token'}, status=status.HTTP_403_FORBIDDEN)
-
+        logger.info("token valid")
         # Extract device information
         device_id = device_info.get('deviceId')
         public_key = device_info.get('publicKey')
         metadata = device_info.get('metadata', {})
-        capabilities = device_info.get('capabilities', [])
+        capabilities = device_info.get('operations', [])  # Note: this matches the client's field name
 
         # Generate a session key
         session_key = uuid.uuid4().hex + uuid.uuid4().hex  # 64 bytes (32 hex chars * 2)
@@ -154,7 +187,7 @@ def register_device(request):
                 'is_active': True
             }
         )
-
+        logger.info("device created")
         # Mark the token as used if this is a new device
         if created:
             token.is_used = True
@@ -348,16 +381,17 @@ def update_command_status(request, command_id):
             return Response({'error': 'Command not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Decrypt the result data
-        from .crypto import decrypt_with_session_key
-        result_data = decrypt_with_session_key(json.loads(encrypted_data), device.session_key)
+        result_data = decrypt_with_session_key(encrypted_data, device.session_key)
 
         # Update the command
-        status = 'completed' if result_data.get('status') == 'success' else 'failed'
-        command.status = status
+        command.status = result_data.get('status', 'completed')
         command.result = result_data
         command.save()
 
-        logger.info(f"Command {command_id} updated to {status}")
+        # Update device's last_seen timestamp
+        device.save()  # This will update the auto_now field
+
+        logger.info(f"Command {command_id} updated to {command.status}")
 
         return Response({'status': 'Command updated'})
     except Exception as e:
@@ -405,11 +439,17 @@ def get_server_public_key(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])  # Devices might not have authentication
+@permission_classes([AllowAny])  # Devices may not have authentication
 def get_pending_commands(request, device_id):
     """Get pending commands for a device (called by device)"""
     try:
+        # Get the device
         device = get_object_or_404(Device, device_id=device_id, is_active=True)
+
+        # Update last_seen timestamp
+        device.save()  # This will update the auto_now field
+
+        # Get pending commands
         pending_commands = Command.objects.filter(device=device, status='pending')
 
         command_list = []
@@ -418,13 +458,25 @@ def get_pending_commands(request, device_id):
             command.status = 'sent'
             command.save()
 
+            # Add to response
             command_list.append({
                 'id': str(command.id),
                 'name': command.name,
                 'params': command.params
             })
 
-        return Response({'commands': command_list})
+        # Encrypt the response if the device has a session key
+        if device.session_key:
+            command_data = {
+                'commands': command_list,
+                'timestamp': timezone.now().isoformat()
+            }
+            encrypted_data = encrypt_with_session_key(command_data, device.session_key)
+            return Response({'data': encrypted_data}, status=status.HTTP_200_OK)
+        else:
+            # Fallback for devices without session key (shouldn't happen in normal operation)
+            return Response({'commands': command_list}, status=status.HTTP_200_OK)
+
     except Exception as e:
         logger.error(f"Error getting pending commands: {str(e)}")
-        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -18,4 +18,6 @@ urlpatterns = [
     path('admin/generate-token', views.generate_token, name='generate_token'),
     path('admin/tokens', views.get_active_tokens, name='get_active_tokens'),
     path('server-key', views.get_server_public_key, name='get_server_public_key'),
+
+    path('devices/<str:device_id>/deregister', views.deregister_device, name='deregister_device'),
 ]
