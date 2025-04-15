@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from dotenv import load_dotenv
 
 from .models import Device, AuthorizationToken, Command, ActionParameter
 from .crypto import (
@@ -25,10 +26,10 @@ def generate_token(request):
     try:
         data = json.loads(request.body)
         admin_key = data.get('adminKey')
-
+        load_dotenv()
         # In production, use a proper authentication mechanism
         # This is just a simple example
-        if admin_key != 'your-admin-secret-key':
+        if admin_key != os.environ.get('ADMIN_SECRET_KEY'):
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
 
