@@ -1,6 +1,8 @@
 from pathlib import Path
 from datetime import timedelta
-
+from dotenv import load_dotenv
+import os
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -9,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_(-!*42-ad7d(5it-l0n@sc68(v^v&)=blnq9rl%6kc2t)_001'
+SECRET_KEY = os.environ.get('ADMIN_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,6 +39,7 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST framework
     'corsheaders',  # Obsługa zapytań z frontendu
     'api',  # Nasza aplikacja API
+    'devices',
     'rest_framework_simplejwt',
     'rest_framework.authtoken'
 ]
