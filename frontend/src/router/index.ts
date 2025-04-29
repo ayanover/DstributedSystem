@@ -3,7 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import LoginView from "@/views/LoginView.vue";
 import RegisterView from "@/views/RegisterView.vue";
 import DeviceList from '../components/DeviceList.vue'
-import DeviceDetail from '../components/DeviceDetails.vue'
+import Asdasd from '../components/asdasd.vue'
 import CommandHistory from '../components/CommandHistory.vue'
 import TokenGenerator from '../components/TokenGenerator.vue'
 
@@ -30,7 +30,7 @@ const router = createRouter({
     {
       path: '/devices/:deviceId',
       name: 'device-detail',
-      component: DeviceDetail,
+      component: Asdasd,
       props: true
     },
     {

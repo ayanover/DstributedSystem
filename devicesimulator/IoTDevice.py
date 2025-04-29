@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 import signal
 import sys
-
-import requests
 import json
 import time
 import uuid
 import argparse
 import threading
 import logging
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import hashes, serialization
+import requests
 import base64
 import os
-from cryptography.hazmat.primitives import serialization
+import io
+import contextlib
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 # Set up logging
@@ -84,6 +84,10 @@ class MathDevice:
             operations["modulo"] = lambda x, y: x % y if y != 0 else "Error: Modulo by zero"
             operations["factorial"] = lambda x, _: self._factorial(x)
 
+        elif self.device_type == "code_executor":
+            operations["execute_code"] = self._execute_code
+            operations["execute_code_with_input"] = self._execute_code_with_input
+
         return operations
 
     def _factorial(self, n):
@@ -93,6 +97,69 @@ class MathDevice:
         if n == 0:
             return 1
         return n * self._factorial(n - 1)
+
+    def _execute_code(self, code, _):
+        """Execute Python code in a safe manner
+
+        Args:
+            code (str): The Python code to execute
+            _ (None): Unused parameter to maintain compatibility with operation signature
+
+        Returns:
+            dict: The execution result containing stdout, stderr and any exceptions
+        """
+        return self._execute_code_with_input(code, None)
+
+    def _execute_code_with_input(self, code, input_data):
+        """Execute Python code with optional input data
+
+        Args:
+            code (str): The Python code to execute
+            input_data (str): Optional input data to pass to the code
+
+        Returns:
+            dict: The execution result containing stdout, stderr and any exceptions
+        """
+        # Create string buffers for stdout and stderr
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+
+        # Create a dictionary for local variables
+        locals_dict = {}
+        if input_data:
+            locals_dict['input_data'] = input_data
+
+        try:
+            # Redirect stdout and stderr
+            with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+                # Execute the code
+                exec(code, {"__builtins__": __builtins__}, locals_dict)
+
+            # Get the stdout and stderr output
+            stdout = stdout_buffer.getvalue()
+            stderr = stderr_buffer.getvalue()
+
+            # Check if there's a result variable in the locals
+            result = None
+            if 'result' in locals_dict:
+                result = locals_dict['result']
+
+            return {
+                "success": True,
+                "stdout": stdout,
+                "stderr": stderr,
+                "result": result
+            }
+
+        except Exception as e:
+            # Capture any exceptions
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "stdout": stdout_buffer.getvalue(),
+                "stderr": stderr_buffer.getvalue()
+            }
 
     def get_server_public_key(self):
         """Get the server's public key"""
@@ -361,9 +428,16 @@ class MathDevice:
             operation = self.operations[command["name"]]
             params = command["params"]
 
-            # Special case for factorial which only takes one parameter
+            # Handle different command types
             if command["name"] == "factorial":
+                # Special case for factorial which only takes one parameter
                 result = operation(params["num1"], None)
+            elif command["name"] == "execute_code":
+                # Execute code without input
+                result = operation(params["code"], None)
+            elif command["name"] == "execute_code_with_input":
+                # Execute code with input data
+                result = operation(params["code"], params["input_data"])
             else:
                 # Regular case for operations that take two parameters
                 result = operation(params["num1"], params["num2"])
@@ -494,8 +568,10 @@ def deregister(self):
 
 def main():
     parser = argparse.ArgumentParser(description="Math Device Simulator")
-    parser.add_argument("--type", choices=["adder", "subtractor", "multiplier", "divider", "calculator", "advanced"],
-                        default="calculator", help="Type of mathematical device to simulate")
+    parser.add_argument("--type",
+                        choices=["adder", "subtractor", "multiplier", "divider", "calculator", "advanced",
+                                 "code_executor"],
+                        default="calculator", help="Type of device to simulate")
     parser.add_argument("--token", required=True, help="Authorization token for device registration")
     parser.add_argument("--server", default="http://localhost:8000/api", help="Server URL")
     args = parser.parse_args()

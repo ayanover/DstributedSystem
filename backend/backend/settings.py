@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST framework
     'corsheaders',  # Obsługa zapytań z frontendu
     'api',  # Nasza aplikacja API
-    'devices',
     'rest_framework_simplejwt',
     'rest_framework.authtoken'
 ]

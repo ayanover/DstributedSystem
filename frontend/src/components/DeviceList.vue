@@ -1,4 +1,3 @@
-// src/components/DeviceList.vue
 <template>
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-2xl font-bold text-gray-900 mb-6">Connected Devices</h1>
@@ -120,12 +119,62 @@
                   </div>
 
                   <form @submit.prevent="executeCommand" v-else>
-                    <div v-for="param in actionParameters" :key="param.name" class="mb-4">
-                      <label :for="param.name" class="block text-sm font-medium text-gray-700">{{ param.name }}</label>
-                      <input :type="param.type" :id="param.name"
-                             v-model="paramValues[param.name]" :required="param.required"
-                             class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                      <p v-if="param.description" class="mt-1 text-xs text-gray-500">{{ param.description }}</p>
+                    <!-- Regular parameters -->
+                    <div v-for="param in actionParameters" :key="param.name">
+                      <!-- For code execution parameters -->
+                      <div v-if="param.name === 'code'" class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                          <label :for="param.name" class="block text-sm font-medium text-gray-700">Python Code</label>
+                          <div class="flex space-x-2">
+                            <!-- File upload button -->
+                            <label class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                              <svg class="mr-1 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
+                              </svg>
+                              Upload .py
+                              <input type="file" accept=".py" @change="handleFileUpload" class="hidden">
+                            </label>
+
+                            <!-- Sample code button -->
+                            <button type="button" @click="loadSampleCode" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50">
+                              <svg class="mr-1 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                              </svg>
+                              Sample
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Code editor -->
+                        <textarea :id="param.name"
+                                v-model="paramValues[param.name]"
+                                rows="12"
+                                class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md font-mono"
+                                placeholder="Enter Python code here..."
+                                :required="param.required"></textarea>
+                        <p class="mt-1 text-xs text-gray-500">Python code that will execute on the device. You can define a 'result' variable to return values.</p>
+                      </div>
+
+                      <!-- For input data parameters -->
+                      <div v-else-if="param.name === 'input_data'" class="mb-4">
+                        <label :for="param.name" class="block text-sm font-medium text-gray-700">Input Data</label>
+                        <textarea :id="param.name"
+                                v-model="paramValues[param.name]"
+                                rows="4"
+                                class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md font-mono"
+                                placeholder="Enter input data here..."
+                                :required="param.required"></textarea>
+                        <p class="mt-1 text-xs text-gray-500">This data will be available as 'input_data' variable in your code.</p>
+                      </div>
+
+                      <!-- For other parameters -->
+                      <div v-else class="mb-4">
+                        <label :for="param.name" class="block text-sm font-medium text-gray-700">{{ param.name }}</label>
+                        <input :type="param.type" :id="param.name"
+                               v-model="paramValues[param.name]" :required="param.required"
+                               class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                        <p v-if="param.description" class="mt-1 text-xs text-gray-500">{{ param.description }}</p>
+                      </div>
                     </div>
                   </form>
                 </div>
@@ -144,9 +193,32 @@
                           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                         </svg>
                       </div>
-                      <div class="ml-3">
+                      <div class="ml-3 w-full">
                         <h3 class="text-sm font-medium text-green-800">Command Completed</h3>
-                        <div class="mt-2 text-sm text-green-700">
+
+                        <!-- Code execution specific results -->
+                        <div v-if="selectedAction === 'execute_code' || selectedAction === 'execute_code_with_input'" class="mt-2">
+                          <!-- Result value -->
+                          <div v-if="commandResult?.result?.result !== undefined" class="mt-2 border-t border-green-200 pt-2">
+                            <h4 class="text-sm font-medium text-green-800">Return Value:</h4>
+                            <pre class="mt-1 text-sm bg-green-100 p-2 rounded overflow-auto">{{ commandResult.result.result }}</pre>
+                          </div>
+
+                          <!-- Standard output -->
+                          <div v-if="commandResult?.result?.stdout" class="mt-2 border-t border-green-200 pt-2">
+                            <h4 class="text-sm font-medium text-green-800">Standard Output:</h4>
+                            <pre class="mt-1 text-sm bg-gray-100 p-2 rounded overflow-auto">{{ commandResult.result.stdout }}</pre>
+                          </div>
+
+                          <!-- Standard error -->
+                          <div v-if="commandResult?.result?.stderr" class="mt-2 border-t border-green-200 pt-2">
+                            <h4 class="text-sm font-medium text-green-800">Standard Error:</h4>
+                            <pre class="mt-1 text-sm bg-yellow-100 p-2 rounded overflow-auto">{{ commandResult.result.stderr }}</pre>
+                          </div>
+                        </div>
+
+                        <!-- Regular result -->
+                        <div v-else class="mt-2 text-sm text-green-700">
                           <p><strong>Result:</strong> {{ commandResult?.result }}</p>
                         </div>
                       </div>
@@ -160,9 +232,31 @@
                           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                         </svg>
                       </div>
-                      <div class="ml-3">
+                      <div class="ml-3 w-full">
                         <h3 class="text-sm font-medium text-red-800">Command Failed</h3>
-                        <div class="mt-2 text-sm text-red-700">
+
+                        <!-- Code execution specific errors -->
+                        <div v-if="(selectedAction === 'execute_code' || selectedAction === 'execute_code_with_input') && commandResult?.result">
+                          <!-- Error message -->
+                          <div v-if="commandResult.result.error" class="mt-2 text-sm text-red-700">
+                            <p><strong>Error:</strong> {{ commandResult.result.error_type || 'Error' }}: {{ commandResult.result.error }}</p>
+                          </div>
+
+                          <!-- Standard output -->
+                          <div v-if="commandResult.result.stdout" class="mt-2 border-t border-red-200 pt-2">
+                            <h4 class="text-sm font-medium text-red-800">Standard Output:</h4>
+                            <pre class="mt-1 text-sm bg-gray-100 p-2 rounded overflow-auto">{{ commandResult.result.stdout }}</pre>
+                          </div>
+
+                          <!-- Standard error -->
+                          <div v-if="commandResult.result.stderr" class="mt-2 border-t border-red-200 pt-2">
+                            <h4 class="text-sm font-medium text-red-800">Standard Error:</h4>
+                            <pre class="mt-1 text-sm bg-red-100 p-2 rounded overflow-auto">{{ commandResult.result.stderr }}</pre>
+                          </div>
+                        </div>
+
+                        <!-- Regular error -->
+                        <div v-else class="mt-2 text-sm text-red-700">
                           <p><strong>Error:</strong> {{ commandResult?.error }}</p>
                         </div>
                       </div>
@@ -389,6 +483,58 @@ export default defineComponent({
       }).format(date);
     };
 
+    // New methods for code execution
+    const handleFileUpload = (event: Event): void => {
+      const input = event.target as HTMLInputElement;
+      if (!input.files || input.files.length === 0) return;
+
+      const file = input.files[0];
+      if (!file.name.endsWith('.py')) {
+        alert('Please select a Python (.py) file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target && typeof e.target.result === 'string') {
+          // Set the file content to the code parameter
+          paramValues['code'] = e.target.result;
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    const loadSampleCode = (): void => {
+      // Set a sample Python code snippet
+      paramValues['code'] = `# Sample Python code for device execution
+import os
+import platform
+import datetime
+
+# Get system information
+system_info = {
+    "platform": platform.platform(),
+    "python_version": platform.python_version(),
+    "processor": platform.processor(),
+    "hostname": platform.node(),
+    "current_time": str(datetime.datetime.now())
+}
+
+# Print some information
+print("Running Python code on IoT device...")
+print(f"Current time: {system_info['current_time']}")
+print(f"Python version: {system_info['python_version']}")
+
+# Define a result to be returned to the server
+result = {
+    "system_info": system_info,
+    "execution_successful": True
+}
+
+# The 'result' variable will be returned to the server
+`;
+    };
+
     // Lifecycle hooks
     onMounted(() => {
       fetchDevices();
@@ -417,7 +563,10 @@ export default defineComponent({
       fetchActionParameters,
       executeCommand,
       resetCommand,
-      formatDate
+      formatDate,
+      // New methods for code execution
+      handleFileUpload,
+      loadSampleCode
     };
   }
 });
