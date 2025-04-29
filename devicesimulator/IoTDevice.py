@@ -573,7 +573,7 @@ def main():
                                  "code_executor"],
                         default="calculator", help="Type of device to simulate")
     parser.add_argument("--token", required=True, help="Authorization token for device registration")
-    parser.add_argument("--server", default="http://localhost:8000/api", help="Server URL")
+    parser.add_argument("--server", default="http://localhost:8000/api/", help="Server URL")
     args = parser.parse_args()
 
     try:
