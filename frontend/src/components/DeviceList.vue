@@ -19,7 +19,8 @@
       </div>
     </div>
 
-    <div v-else-if="devices.length === 0" class="bg-blue-50 border-l-4 border-blue-500 p-4">
+    <!-- Active Devices -->
+    <div v-else-if="activeDevices.length === 0 && inactiveDevices.length === 0" class="bg-blue-50 border-l-4 border-blue-500 p-4">
       <div class="flex">
         <div class="flex-shrink-0">
           <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -34,40 +35,106 @@
       </div>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="device in devices" :key="device.deviceId"
-           class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-lg">
-        <div class="border-b border-gray-200 bg-gray-50 px-4 py-5 sm:px-6 flex justify-between items-center">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">{{ device.deviceType }}</h3>
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            {{ formatDate(device.lastSeen) }}
-          </span>
-        </div>
-        <div class="px-4 py-5 sm:p-6">
-          <p class="text-sm text-gray-500 mb-3">
-            <span class="font-medium text-gray-700">ID:</span>
-            <span class="font-mono">{{ device.deviceId.substring(0, 16) }}...</span>
-          </p>
+    <div v-else>
+      <!-- Active Devices Section -->
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Active Devices</h2>
 
-          <div class="mb-4">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">Capabilities:</h4>
-            <div class="flex flex-wrap gap-2">
-              <span v-for="capability in device.capabilities" :key="capability"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
-                {{ capability }}
-              </span>
+        <div v-if="activeDevices.length === 0" class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-blue-700">
+                No active devices found. Devices that have disconnected are shown below.
+              </p>
             </div>
           </div>
         </div>
-        <div class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
-          <button @click="selectDevice(device)"
-                  class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            Execute Command
-          </button>
-          <router-link :to="'/devices/' + device.deviceId"
-                      class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            View History
-          </router-link>
+
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="device in activeDevices" :key="device.deviceId"
+              class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-lg">
+            <div class="border-b border-gray-200 bg-gray-50 px-4 py-5 sm:px-6 flex justify-between items-center">
+              <h3 class="text-lg leading-6 font-medium text-gray-900">{{ device.deviceType }}</h3>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span class="h-2 w-2 mr-1 bg-green-400 rounded-full"></span>
+                {{ formatDate(device.lastSeen) }}
+              </span>
+            </div>
+            <div class="px-4 py-5 sm:p-6">
+              <p class="text-sm text-gray-500 mb-3">
+                <span class="font-medium text-gray-700">ID:</span>
+                <span class="font-mono">{{ device.deviceId.substring(0, 16) }}...</span>
+              </p>
+
+              <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Capabilities:</h4>
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="capability in device.capabilities" :key="capability"
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
+                    {{ capability }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
+              <button @click="selectDevice(device)"
+                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Execute Command
+              </button>
+              <router-link :to="'/devices/' + device.deviceId"
+                          class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                View History
+              </router-link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inactive Devices Section -->
+      <div v-if="inactiveDevices.length > 0">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Inactive Devices</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="device in inactiveDevices" :key="device.deviceId"
+              class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-lg opacity-75">
+            <div class="border-b border-gray-200 bg-gray-50 px-4 py-5 sm:px-6 flex justify-between items-center">
+              <h3 class="text-lg leading-6 font-medium text-gray-900">{{ device.deviceType }}</h3>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <span class="h-2 w-2 mr-1 bg-red-400 rounded-full"></span>
+                Disconnected
+              </span>
+            </div>
+            <div class="px-4 py-5 sm:p-6">
+              <p class="text-sm text-gray-500 mb-3">
+                <span class="font-medium text-gray-700">ID:</span>
+                <span class="font-mono">{{ device.deviceId.substring(0, 16) }}...</span>
+              </p>
+              <p class="text-sm text-gray-500 mb-3">
+                <span class="font-medium text-gray-700">Last Seen:</span>
+                {{ formatDate(device.lastSeen) }}
+              </p>
+
+              <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Capabilities:</h4>
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="capability in device.capabilities" :key="capability"
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
+                    {{ capability }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-end">
+              <router-link :to="'/devices/' + device.deviceId"
+                          class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                View History
+              </router-link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -196,30 +263,15 @@
                       <div class="ml-3 w-full">
                         <h3 class="text-sm font-medium text-green-800">Command Completed</h3>
 
-                        <!-- Code execution specific results -->
-                        <div v-if="selectedAction === 'execute_code' || selectedAction === 'execute_code_with_input'" class="mt-2">
-                          <!-- Result value -->
-                          <div v-if="commandResult?.result?.result !== undefined" class="mt-2 border-t border-green-200 pt-2">
-                            <h4 class="text-sm font-medium text-green-800">Return Value:</h4>
-                            <pre class="mt-1 text-sm bg-green-100 p-2 rounded overflow-auto">{{ commandResult.result.result }}</pre>
-                          </div>
-
-                          <!-- Standard output -->
-                          <div v-if="commandResult?.result?.stdout" class="mt-2 border-t border-green-200 pt-2">
-                            <h4 class="text-sm font-medium text-green-800">Standard Output:</h4>
-                            <pre class="mt-1 text-sm bg-gray-100 p-2 rounded overflow-auto">{{ commandResult.result.stdout }}</pre>
-                          </div>
-
-                          <!-- Standard error -->
-                          <div v-if="commandResult?.result?.stderr" class="mt-2 border-t border-green-200 pt-2">
-                            <h4 class="text-sm font-medium text-green-800">Standard Error:</h4>
-                            <pre class="mt-1 text-sm bg-yellow-100 p-2 rounded overflow-auto">{{ commandResult.result.stderr }}</pre>
-                          </div>
-                        </div>
-
-                        <!-- Regular result -->
-                        <div v-else class="mt-2 text-sm text-green-700">
-                          <p><strong>Result:</strong> {{ commandResult?.result }}</p>
+                        <!-- Command result button -->
+                        <div class="mt-2 pt-2 border-t border-green-200">
+                          <button @click="showResultPopup(commandResult)"
+                                  class="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200">
+                            <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            View Result
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -235,29 +287,15 @@
                       <div class="ml-3 w-full">
                         <h3 class="text-sm font-medium text-red-800">Command Failed</h3>
 
-                        <!-- Code execution specific errors -->
-                        <div v-if="(selectedAction === 'execute_code' || selectedAction === 'execute_code_with_input') && commandResult?.result">
-                          <!-- Error message -->
-                          <div v-if="commandResult.result.error" class="mt-2 text-sm text-red-700">
-                            <p><strong>Error:</strong> {{ commandResult.result.error_type || 'Error' }}: {{ commandResult.result.error }}</p>
-                          </div>
-
-                          <!-- Standard output -->
-                          <div v-if="commandResult.result.stdout" class="mt-2 border-t border-red-200 pt-2">
-                            <h4 class="text-sm font-medium text-red-800">Standard Output:</h4>
-                            <pre class="mt-1 text-sm bg-gray-100 p-2 rounded overflow-auto">{{ commandResult.result.stdout }}</pre>
-                          </div>
-
-                          <!-- Standard error -->
-                          <div v-if="commandResult.result.stderr" class="mt-2 border-t border-red-200 pt-2">
-                            <h4 class="text-sm font-medium text-red-800">Standard Error:</h4>
-                            <pre class="mt-1 text-sm bg-red-100 p-2 rounded overflow-auto">{{ commandResult.result.stderr }}</pre>
-                          </div>
-                        </div>
-
-                        <!-- Regular error -->
-                        <div v-else class="mt-2 text-sm text-red-700">
-                          <p><strong>Error:</strong> {{ commandResult?.error }}</p>
+                        <!-- Command result button -->
+                        <div class="mt-2 pt-2 border-t border-red-200">
+                          <button @click="showResultPopup(commandResult)"
+                                  class="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200">
+                            <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            View Error Details
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -295,20 +333,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Code Overlay -->
+    <CodeOverlay
+      :show="showCode"
+      :content="selectedCode"
+      :title="codeTitle"
+      @close="showCode = false"
+    />
+
+    <!-- Result Overlay -->
+    <CodeOverlay
+      :show="showResult"
+      :content="selectedResult"
+      :title="resultTitle"
+      @close="showResult = false"
+    />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, onMounted, onBeforeUnmount } from 'vue';
+import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import api from '@/api';
-
-interface Device {
-  id: string;
-  deviceId: string;
-  deviceType: string;
-  capabilities: string[];
-  lastSeen: string;
-}
+import CodeOverlay from './CodeOverlay.vue';
 
 interface ActionParameter {
   name: string;
@@ -321,10 +368,36 @@ interface CommandResult {
   status: 'success' | 'error';
   result?: any;
   error?: string;
+  stdout?: string;
+  stderr?: string;
+  error_type?: string;
+  success?: boolean;
+}
+
+interface Command {
+  id: string;
+  name: string;
+  params: Record<string, any>;
+  status: string;
+  result: CommandResult | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Device {
+  id: string;
+  deviceId: string;
+  deviceType: string;
+  capabilities: string[];
+  lastSeen: string;
+  isActive: boolean;
 }
 
 export default defineComponent({
   name: 'DeviceList',
+  components: {
+    CodeOverlay
+  },
   setup() {
     // State
     const devices = ref<Device[]>([]);
@@ -333,19 +406,36 @@ export default defineComponent({
     const selectedDevice = ref<Device | null>(null);
     const selectedAction = ref<string>('');
     const actionParameters = ref<ActionParameter[]>([]);
-    const paramValues = reactive<Record<string, any>>({});
+    const paramValues = ref<Record<string, any>>({});
     const commandStep = ref<number>(1);
     const commandId = ref<string | null>(null);
     const commandStatus = ref<string | null>(null);
-    const commandResult = ref<CommandResult | null>(null);
+    const commandResult = ref<any | null>(null);
     const modalOpen = ref<boolean>(false);
     const pollInterval = ref<number | null>(null);
+
+    // Overlay states
+    const showCode = ref<boolean>(false);
+    const showResult = ref<boolean>(false);
+    const selectedCode = ref<string>('');
+    const selectedResult = ref<string>('');
+    const codeTitle = ref<string>('Code View');
+    const resultTitle = ref<string>('Result Output');
+
+    // Computed properties
+    const activeDevices = computed(() => {
+      return devices.value.filter(device => device.isActive);
+    });
+
+    const inactiveDevices = computed(() => {
+      return devices.value.filter(device => !device.isActive);
+    });
 
     // Methods
     const fetchDevices = async (): Promise<void> => {
       loading.value = true;
       try {
-        const response = await api.getDevices();
+        const response = await api.getAllDevices();
         devices.value = response.data.devices;
       } catch (err: any) {
         error.value = `Error loading devices: ${err.response?.data?.error || err.message}`;
@@ -358,7 +448,7 @@ export default defineComponent({
       selectedDevice.value = device;
       selectedAction.value = '';
       actionParameters.value = [];
-      Object.keys(paramValues).forEach(key => delete paramValues[key]);
+      Object.keys(paramValues.value).forEach(key => delete paramValues.value[key]);
       commandStep.value = 1;
       commandId.value = null;
       commandStatus.value = null;
@@ -380,7 +470,7 @@ export default defineComponent({
 
         // Initialize parameter values
         actionParameters.value.forEach(param => {
-          paramValues[param.name] = '';
+          paramValues.value[param.name] = '';
         });
       } catch (err) {
         console.error('Error fetching parameters:', err);
@@ -397,7 +487,7 @@ export default defineComponent({
       // Validate parameters
       let valid = true;
       actionParameters.value.forEach(param => {
-        if (param.required && !paramValues[param.name]) {
+        if (param.required && !paramValues.value[param.name]) {
           valid = false;
         }
       });
@@ -411,7 +501,7 @@ export default defineComponent({
         const response = await api.executeCommand(
           selectedDevice.value.deviceId,
           selectedAction.value,
-          paramValues
+          paramValues.value
         );
 
         commandId.value = response.data.commandId;
@@ -442,7 +532,7 @@ export default defineComponent({
             stopPolling();
 
             commandStatus.value = command.status;
-            commandResult.value = command.result;
+            commandResult.value = command;
           }
         } catch (err) {
           console.error('Error polling command status:', err);
@@ -467,7 +557,7 @@ export default defineComponent({
     const resetCommand = (): void => {
       commandStep.value = 1;
       selectedAction.value = '';
-      Object.keys(paramValues).forEach(key => delete paramValues[key]);
+      Object.keys(paramValues.value).forEach(key => delete paramValues.value[key]);
       commandId.value = null;
       commandStatus.value = null;
       commandResult.value = null;
@@ -483,7 +573,18 @@ export default defineComponent({
       }).format(date);
     };
 
-    // New methods for code execution
+    const formatTime = (dateString: string): string => {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).format(date);
+    };
+
+    // Methods for code execution
     const handleFileUpload = (event: Event): void => {
       const input = event.target as HTMLInputElement;
       if (!input.files || input.files.length === 0) return;
@@ -498,7 +599,7 @@ export default defineComponent({
       reader.onload = (e) => {
         if (e.target && typeof e.target.result === 'string') {
           // Set the file content to the code parameter
-          paramValues['code'] = e.target.result;
+          paramValues.value['code'] = e.target.result;
         }
       };
       reader.readAsText(file);
@@ -506,7 +607,7 @@ export default defineComponent({
 
     const loadSampleCode = (): void => {
       // Set a sample Python code snippet
-      paramValues['code'] = `# Sample Python code for device execution
+      paramValues.value['code'] = `# Sample Python code for device execution
 import os
 import platform
 import datetime
@@ -535,17 +636,96 @@ result = {
 `;
     };
 
+    // Popup methods
+    const showCodePopup = (command: any): void => {
+      selectedCode.value = command.params?.code || '';
+      codeTitle.value = `Code: ${command.name}`;
+      showCode.value = true;
+    };
+
+    const showResultPopup = (command: any): void => {
+      // For all result types, choose the appropriate display format
+      let output = '';
+
+      // If it's a completed command
+      if (command.status === 'completed') {
+        // Format based on result content
+        if (command.result) {
+          // If the result has stdout
+          if (command.result.stdout) {
+            output = command.result.stdout;
+          }
+          // If no stdout but has stderr
+          else if (command.result.stderr) {
+            output = command.result.stderr;
+          }
+          // For simple return values
+          else if (command.result.result !== undefined) {
+            // Format appropriately based on type
+            if (typeof command.result.result === 'string') {
+              output = command.result.result;
+            } else {
+              // Pretty print objects/arrays
+              output = JSON.stringify(command.result.result, null, 2);
+            }
+          }
+          // If it's just a simple value (for non-code-execution commands)
+          else if (typeof command.result === 'string' ||
+                  typeof command.result === 'number' ||
+                  typeof command.result === 'boolean') {
+            output = String(command.result);
+          }
+          // If it's a raw object result (for non-code-execution commands)
+          else {
+            output = JSON.stringify(command.result, null, 2);
+          }
+        }
+
+        // If no output was assigned, provide a default message
+        if (!output) {
+          output = 'Command completed successfully with no output.';
+        }
+      }
+      // If it's a failed command
+      else if (command.status === 'failed') {
+        // Check for error message
+        if (command.result && command.result.error) {
+          output = command.result.error_type ?
+            `${command.result.error_type}: ${command.result.error}` :
+            command.result.error;
+        } else {
+          output = 'Command failed without specific error details.';
+        }
+      }
+      // For pending or sent status
+      else {
+        output = `Command is in '${command.status}' state.`;
+      }
+
+      selectedResult.value = output;
+      resultTitle.value = `Result: ${command.name}`;
+      showResult.value = true;
+    };
+
     // Lifecycle hooks
     onMounted(() => {
       fetchDevices();
-    });
 
-    onBeforeUnmount(() => {
-      stopPolling();
+      // Set up periodic refresh to detect status changes
+      const refreshInterval = setInterval(() => {
+        fetchDevices();
+      }, 30000); // Refresh every 30 seconds
+
+      onBeforeUnmount(() => {
+        clearInterval(refreshInterval);
+        stopPolling();
+      });
     });
 
     return {
       devices,
+      activeDevices,
+      inactiveDevices,
       loading,
       error,
       selectedDevice,
@@ -557,6 +737,12 @@ result = {
       commandStatus,
       commandResult,
       modalOpen,
+      showCode,
+      showResult,
+      selectedCode,
+      selectedResult,
+      codeTitle,
+      resultTitle,
       fetchDevices,
       selectDevice,
       closeModal,
@@ -564,9 +750,11 @@ result = {
       executeCommand,
       resetCommand,
       formatDate,
-      // New methods for code execution
+      formatTime,
       handleFileUpload,
-      loadSampleCode
+      loadSampleCode,
+      showCodePopup,
+      showResultPopup
     };
   }
 });

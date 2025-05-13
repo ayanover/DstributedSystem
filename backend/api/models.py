@@ -15,6 +15,7 @@ class CustomUserManager(BaseUserManager):
 
         return user
 
+
     def create_user(self, name=None, email=None, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', False)
         extra_fields.setdefault('is_superuser', False)
@@ -79,6 +80,12 @@ class Device(models.Model):
     is_active = models.BooleanField(default=True)
     registered_at = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)
+
+    def reactivate(self):
+        """Explicitly reactivate a device and save it"""
+        self.is_active = True
+        self.save(update_fields=['is_active', 'last_seen'])
+        return self
 
     def __str__(self):
         return f"{self.device_type} ({self.device_id})"

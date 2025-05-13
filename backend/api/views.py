@@ -1,3 +1,4 @@
+from django.core.management import call_command
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from .forms import SignupForm
@@ -65,6 +66,142 @@ from .crypto import (
 
 logger = logging.getLogger(__name__)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_commands(request):
+    """Get command history across all devices"""
+    try:
+        # Fetch commands from all devices, with most recent first
+        commands = Command.objects.all().order_by('-created_at')[:200]  # Limit to most recent 200 commands
+
+        # Prepare data with device information included
+        command_list = []
+        for command in commands:
+            command_list.append({
+                'id': str(command.id),
+                'deviceId': command.device.device_id,
+                'deviceType': command.device.device_type,
+                'name': command.name,
+                'params': command.params,
+                'status': command.status,
+                'result': command.result,
+                'createdAt': command.created_at.isoformat(),
+                'updatedAt': command.updated_at.isoformat()
+            })
+
+        return Response({'commands': command_list})
+    except Exception as e:
+        logger.error(f"Error retrieving command history: {str(e)}")
+        return Response(
+            {'error': 'An error occurred while retrieving command history'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_devices(request):
+    call_command('mark_inactive_devices', timeout=60)
+    """API to get list of all devices (both active and inactive)"""
+    devices = Device.objects.all()
+    device_list = []
+
+    for device in devices:
+        device_list.append({
+            'id': str(device.id),
+            'deviceId': device.device_id,
+            'deviceType': device.device_type,
+            'capabilities': device.capabilities,
+            'lastSeen': device.last_seen.isoformat(),
+            'isActive': device.is_active
+        })
+
+    return Response({'devices': device_list})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def device_heartbeat(request, device_id):
+    """Update the device's last_seen timestamp (heartbeat mechanism)"""
+    try:
+        try:
+            device = Device.objects.get(device_id=device_id)
+        except Device.DoesNotExist:
+            return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Verify the device identity (optional - can use session key or other method)
+        data = json.loads(request.body)
+        if 'data' in data:
+            try:
+                encrypted_data = data.get('data')
+                decrypt_with_session_key(encrypted_data, device.session_key)
+                # Just verifying encryption works, not using the data
+            except Exception as e:
+                logger.warning(f"Error decrypting heartbeat data: {str(e)}")
+                return Response({'error': 'Authentication failed'}, status=status.HTTP_403_FORBIDDEN)
+
+        # If previously inactive, reactivate the device
+        was_inactive = not device.is_active
+        if was_inactive:
+            device.is_active = True
+            logger.info(f"Device reactivated via heartbeat: {device_id}")
+
+        # Save the device to update the last_seen timestamp (auto_now field)
+        device.save()
+
+        return Response({'status': 'ok', 'active': True})
+    except Exception as e:
+        logger.error(f"Error processing heartbeat: {str(e)}")
+        return Response({'error': 'Heartbeat failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reconnect_device(request):
+    """Reconnect a previously registered device"""
+    try:
+        data = json.loads(request.body)
+        device_id = data.get('deviceId')
+        public_key_pem = data.get('publicKey')
+
+        if not device_id or not public_key_pem:
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find the device in the database
+        try:
+            device = Device.objects.get(device_id=device_id)
+        except Device.DoesNotExist:
+            return Response({'error': 'Device not found', 'action': 'register'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # Verify the public key matches
+        if device.public_key != public_key_pem:
+            return Response({'error': 'Authentication failed'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Generate a new session key
+        session_key = uuid.uuid4().hex + uuid.uuid4().hex  # 64 bytes
+
+        # Update device - EXPLICITLY SET TO ACTIVE
+        device.session_key = session_key
+        device.is_active = True  # This line ensures the device is marked as active
+        device.save()
+
+        logger.info(f"Device reconnected and marked active: {device_id}")
+
+        # Encrypt the response with the device's public key
+        response_data = {
+            'sessionKey': session_key,
+            'message': 'Reconnection successful',
+            'serverTime': timezone.now().isoformat()
+        }
+
+        encrypted_response = encrypt_with_public_key(response_data, device.public_key)
+
+        return Response(encrypted_response, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"Reconnection error: {str(e)}")
+        return Response({'error': 'Reconnection failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

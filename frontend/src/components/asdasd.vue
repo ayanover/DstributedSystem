@@ -1,4 +1,3 @@
-// src/components/DeviceDetail.vue
 <template>
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div v-if="loading" class="flex justify-center my-12">
@@ -136,7 +135,29 @@
                       <div class="font-medium text-gray-900">{{ command.name }}</div>
                     </td>
                     <td class="px-6 py-4">
-                      <div v-for="(value, key) in command.params" :key="key" class="text-sm text-gray-500">
+                      <!-- For code execution commands -->
+                      <template v-if="hasCode(command)">
+                        <button @click="showCodePopup(command)"
+                                class="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200">
+                          <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                          </svg>
+                          View Code
+                        </button>
+
+                        <!-- If there's input data, show a button for it as well -->
+                        <button v-if="hasInputData(command)"
+                                @click="showInputDataPopup(command)"
+                                class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 ml-2">
+                          <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          View Input
+                        </button>
+                      </template>
+
+                      <!-- For non-code commands -->
+                      <div v-else v-for="(value, key) in command.params" :key="key" class="text-sm text-gray-500">
                         <span class="font-medium text-gray-700">{{ key }}:</span> {{ value }}
                       </div>
                     </td>
@@ -145,14 +166,28 @@
                         {{ command.status }}
                       </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span v-if="command.result && command.result.status === 'success'" class="text-green-600">
-                        {{ command.result.result }}
-                      </span>
-                      <span v-else-if="command.result && command.result.status === 'error'" class="text-red-600">
-                        {{ command.result.error }}
-                      </span>
-                      <span v-else class="text-gray-500">-</span>
+                    <td class="px-6 py-4">
+                      <!-- For code execution results -->
+                      <template v-if="hasCodeExecutionResult(command)">
+                        <button @click="showResultPopup(command)"
+                                class="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200">
+                          <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          View Result
+                        </button>
+                      </template>
+
+                      <!-- For non-code execution results -->
+                      <template v-else>
+                        <span v-if="command.result && command.status === 'completed'" class="text-sm text-green-600">
+                          {{ command.result }}
+                        </span>
+                        <span v-else-if="command.result && command.status === 'failed'" class="text-sm text-red-600">
+                          {{ command.result.error || 'Failed' }}
+                        </span>
+                        <span v-else class="text-sm text-gray-500">-</span>
+                      </template>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {{ formatTime(command.createdAt) }}
@@ -180,6 +215,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Code Overlay -->
+    <CodeOverlay
+      :show="showCode"
+      :content="selectedCode"
+      :title="codeTitle"
+      @close="showCode = false"
+    />
+
+    <!-- Result Overlay -->
+    <CodeOverlay
+      :show="showResult"
+      :content="selectedResult"
+      :title="resultTitle"
+      @close="showResult = false"
+    />
   </div>
 </template>
 
@@ -187,11 +238,16 @@
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/api';
+import CodeOverlay from './CodeOverlay.vue';
 
 interface CommandResult {
   status: 'success' | 'error';
   result?: any;
   error?: string;
+  stdout?: string;
+  stderr?: string;
+  error_type?: string;
+  success?: boolean;
 }
 
 interface Command {
@@ -213,6 +269,9 @@ interface Device {
 
 export default defineComponent({
   name: 'DeviceDetail',
+  components: {
+    CodeOverlay
+  },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -224,6 +283,14 @@ export default defineComponent({
     const commandsLoading = ref<boolean>(false);
     const error = ref<string | null>(null);
     const refreshInterval = ref<number | null>(null);
+
+    // Overlay states
+    const showCode = ref<boolean>(false);
+    const showResult = ref<boolean>(false);
+    const selectedCode = ref<string>('');
+    const selectedResult = ref<string>('');
+    const codeTitle = ref<string>('Code View');
+    const resultTitle = ref<string>('Result Output');
 
     // Computed
     const deviceId = computed<string>(() => route.params.deviceId as string);
@@ -325,6 +392,75 @@ export default defineComponent({
       }).format(date);
     };
 
+    // Code-related methods
+    const hasCode = (command: Command): boolean => {
+      return command.name === 'execute_code' || command.name === 'execute_code_with_input';
+    };
+
+    const hasInputData = (command: Command): boolean => {
+      return command.name === 'execute_code_with_input' && !!command.params.input_data;
+    };
+
+    const getCodeValue = (command: Command): string => {
+      return command.params.code || '';
+    };
+
+    // Result-related methods
+    const hasCodeExecutionResult = (command: Command): boolean => {
+      return (command.name === 'execute_code' || command.name === 'execute_code_with_input') &&
+             command.result &&
+             (command.result.stdout ||
+              command.result.stderr ||
+              command.result.error);
+    };
+
+    // Popup methods
+    const showCodePopup = (command: Command): void => {
+      selectedCode.value = getCodeValue(command);
+      codeTitle.value = `Code: ${command.name}`;
+      showCode.value = true;
+    };
+
+    const showInputDataPopup = (command: Command): void => {
+      selectedCode.value = command.params.input_data || '';
+      codeTitle.value = `Input Data: ${command.name}`;
+      showCode.value = true;
+    };
+
+    const showResultPopup = (command: Command): void => {
+      // Format the result to show only stdout and stderr
+      let output = '';
+
+      if (command.result && command.result.result.stdout) {
+        output += command.result.result.stdout;
+      }
+
+      if (command.result && command.result.result.stderr) {
+        if (output) output += '\n\n';
+        output += '=== STDERR ===\n';
+        output += command.result.result.stderr;
+      }
+
+      if (command.result && command.result.result.error) {
+        if (output) output += '\n\n';
+        output += '=== ERROR ===\n';
+        output += command.result.error_type ? `${command.result.error_type}: ${command.result.error}` : command.result.error;
+      }
+
+      if (!output && command.result && command.result.result !== undefined) {
+        output = JSON.stringify(command.result.result, null, 2);
+      }
+
+      // If still no output
+      if (!output) {
+        output = command.status === 'completed' ? 'Command completed successfully with no output.' : 'No output available.';
+      }
+
+      selectedResult.value = output;
+      resultTitle.value = `Result: ${command.name}`;
+      showResult.value = true;
+    };
+
     // Lifecycle hooks
     onMounted(() => {
       fetchDeviceData();
@@ -341,11 +477,24 @@ export default defineComponent({
       loading,
       commandsLoading,
       error,
+      showCode,
+      showResult,
+      selectedCode,
+      selectedResult,
+      codeTitle,
+      resultTitle,
       fetchDeviceData,
       refreshCommands,
       getStatusBadgeClass,
       formatDate,
-      formatTime
+      formatTime,
+      hasCode,
+      hasInputData,
+      getCodeValue,
+      hasCodeExecutionResult,
+      showCodePopup,
+      showInputDataPopup,
+      showResultPopup
     };
   }
 });
