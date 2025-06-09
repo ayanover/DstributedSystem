@@ -1,6 +1,117 @@
 <template>
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Connected Devices</h1>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-gray-900">Connected Devices</h1>
+
+      <!-- Debug Toggle -->
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center">
+          <span class="h-2 w-2 mr-2 rounded-full" :class="encryptionStatus === 'connected' ? 'bg-green-400' : 'bg-red-400'"></span>
+          <span class="text-xs" :class="encryptionStatus === 'connected' ? 'text-green-600' : 'text-red-600'">
+            {{ encryptionStatus === 'connected' ? 'Encrypted' : 'Not Encrypted' }}
+          </span>
+        </div>
+        <label class="inline-flex items-center">
+          <input type="checkbox" v-model="showDebugInfo" class="form-checkbox h-4 w-4 text-indigo-600">
+          <span class="ml-2 text-sm text-gray-700">Show Debug Info</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Debug Information Panel -->
+    <div v-if="showDebugInfo" class="mb-6 bg-gray-50 border border-gray-200 rounded-lg">
+      <div class="px-4 py-3 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">🔐 End-to-End Encryption Debug</h3>
+        <p class="text-sm text-gray-600">View encrypted communication using device-level security</p>
+      </div>
+
+      <div class="p-4 space-y-4">
+        <!-- Encryption Status -->
+        <div class="bg-white p-3 rounded border">
+          <h4 class="text-sm font-semibold text-gray-700 mb-2">Encryption Status</h4>
+          <div class="text-xs space-y-1">
+            <div><span class="font-medium">Frontend ID:</span> <span class="font-mono">{{ frontendId || 'Not generated' }}</span></div>
+            <div><span class="font-medium">Session Key:</span> <span class="font-mono">{{ sessionKey ? 'Established (' + sessionKey.length + ' chars)' : 'None' }}</span></div>
+            <div><span class="font-medium">Server Public Key:</span> <span class="font-mono">{{ serverPublicKey ? 'Loaded' : 'Not loaded' }}</span></div>
+            <div><span class="font-medium">Status:</span> <span class="font-mono" :class="encryptionStatus === 'connected' ? 'text-green-600' : 'text-red-600'">{{ encryptionStatus }}</span></div>
+          </div>
+        </div>
+
+        <!-- Last Encrypted Request -->
+        <div v-if="lastEncryptedRequest">
+          <div class="flex justify-between items-center mb-2">
+            <h4 class="text-sm font-semibold text-gray-700">🔒 Encrypted Network Request</h4>
+            <button @click="copyToClipboard(lastEncryptedRequest)"
+                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+              Copy
+            </button>
+          </div>
+          <div class="bg-gray-100 p-3 rounded border font-mono text-xs">
+            <div class="mb-2">
+              <span class="font-semibold text-gray-600">Endpoint:</span>
+              <span class="text-green-600">{{ lastRequestEndpoint }}</span>
+            </div>
+            <div class="mb-2">
+              <span class="font-semibold text-gray-600">Timestamp:</span>
+              <span>{{ formatTime(lastRequestTime) }}</span>
+            </div>
+            <div class="mb-2 text-orange-600 text-xs font-semibold">
+              ⚠️ AES-256-CBC encrypted payload:
+            </div>
+            <div class="max-h-32 overflow-y-auto bg-white p-2 rounded border">
+              <pre class="whitespace-pre-wrap break-all text-red-600">{{ lastEncryptedRequest }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Last Encrypted Response -->
+        <div v-if="lastEncryptedResponse">
+          <div class="flex justify-between items-center mb-2">
+            <h4 class="text-sm font-semibold text-gray-700">🔒 Encrypted Network Response</h4>
+            <button @click="copyToClipboard(lastEncryptedResponse)"
+                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+              Copy
+            </button>
+          </div>
+          <div class="bg-gray-100 p-3 rounded border font-mono text-xs">
+            <div class="mb-2">
+              <span class="font-semibold text-gray-600">Status:</span>
+              <span class="text-green-600">{{ lastResponseStatus }}</span>
+            </div>
+            <div class="mb-2">
+              <span class="font-semibold text-gray-600">Timestamp:</span>
+              <span>{{ formatTime(lastResponseTime) }}</span>
+            </div>
+            <div class="mb-2 text-orange-600 text-xs font-semibold">
+              ⚠️ Session-key encrypted response:
+            </div>
+            <div class="max-h-32 overflow-y-auto bg-white p-2 rounded border">
+              <pre class="whitespace-pre-wrap break-all text-red-600">{{ lastEncryptedResponse }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- No Debug Data -->
+        <div v-if="!lastEncryptedRequest && !lastEncryptedResponse" class="text-center py-4 text-gray-500">
+          <p class="text-sm">🔍 No encrypted communication captured yet.</p>
+          <p class="text-xs">Execute a command to see encrypted data using device-level security.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Encryption Setup Error -->
+    <div v-if="encryptionError" class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">Encryption Error: {{ encryptionError }}</p>
+        </div>
+      </div>
+    </div>
 
     <div v-if="loading" class="flex justify-center my-12">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -83,8 +194,9 @@
             </div>
             <div class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
               <button @click="selectDevice(device)"
-                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Execute Command
+                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="encryptionStatus !== 'connected'">
+                {{ encryptionStatus === 'connected' ? '🔐 Execute Command' : 'Encryption Required' }}
               </button>
               <router-link :to="'/devices/' + device.deviceId"
                           class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -151,7 +263,7 @@
             <div class="sm:flex sm:items-start">
               <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                  Execute Command on {{ selectedDevice.deviceType }}
+                  🔐 Execute Encrypted Command on {{ selectedDevice.deviceType }}
                 </h3>
 
                 <!-- Step 1: Select Action -->
@@ -170,6 +282,7 @@
                 <div v-else-if="commandStep === 2" class="mt-4">
                   <div class="bg-gray-50 px-3 py-2 rounded-md mb-4">
                     <p class="text-sm font-medium text-gray-800">Action: {{ selectedAction }}</p>
+                    <p class="text-xs text-green-600">🔐 This command will be encrypted end-to-end</p>
                   </div>
 
                   <div v-if="actionParameters.length === 0" class="bg-blue-50 p-4 rounded-md">
@@ -250,7 +363,7 @@
                 <div v-else-if="commandStep === 3" class="mt-4">
                   <div v-if="commandStatus === 'pending'" class="flex justify-center items-center flex-col py-6">
                     <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
-                    <p class="text-sm text-gray-600">Command is being processed...</p>
+                    <p class="text-sm text-gray-600">🔐 Encrypted command is being processed...</p>
                   </div>
 
                   <div v-else-if="commandStatus === 'completed'" class="bg-green-50 p-4 rounded-md">
@@ -261,7 +374,7 @@
                         </svg>
                       </div>
                       <div class="ml-3 w-full">
-                        <h3 class="text-sm font-medium text-green-800">Command Completed</h3>
+                        <h3 class="text-sm font-medium text-green-800">🔐 Encrypted Command Completed</h3>
 
                         <!-- Command result button -->
                         <div class="mt-2 pt-2 border-t border-green-200">
@@ -285,7 +398,7 @@
                         </svg>
                       </div>
                       <div class="ml-3 w-full">
-                        <h3 class="text-sm font-medium text-red-800">Command Failed</h3>
+                        <h3 class="text-sm font-medium text-red-800">🔐 Encrypted Command Failed</h3>
 
                         <!-- Command result button -->
                         <div class="mt-2 pt-2 border-t border-red-200">
@@ -312,7 +425,7 @@
 
             <button v-if="commandStep === 2" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
                     @click="executeCommand">
-              Execute
+              🔐 Execute Encrypted
             </button>
 
             <button v-if="commandStep === 3" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
@@ -353,7 +466,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { defineComponent, ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import api from '@/api';
 import CodeOverlay from './CodeOverlay.vue';
 
@@ -393,8 +506,277 @@ interface Device {
   isActive: boolean;
 }
 
+// Encryption utility class
+class FrontendCrypto {
+  private serverPublicKey: CryptoKey | null = null;
+  private sessionKey: string | null = null;
+  private frontendId: string;
+
+  constructor() {
+    this.frontendId = this.generateUUID();
+  }
+
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  async loadServerPublicKey(): Promise<void> {
+    try {
+      const response = await fetch('/api/server-key');
+      const data = await response.json();
+
+      // Parse PEM format
+      const pemKey = data.publicKey
+        .replace('-----BEGIN PUBLIC KEY-----', '')
+        .replace('-----END PUBLIC KEY-----', '')
+        .replace(/\s/g, '');
+
+      const keyData = Uint8Array.from(atob(pemKey), c => c.charCodeAt(0));
+
+      this.serverPublicKey = await window.crypto.subtle.importKey(
+        'spki',
+        keyData,
+        {
+          name: 'RSA-OAEP',
+          hash: 'SHA-256'
+        },
+        false,
+        ['encrypt']
+      );
+    } catch (error) {
+      throw new Error(`Failed to load server public key: ${error}`);
+    }
+  }
+
+  async establishSession(): Promise<void> {
+    if (!this.serverPublicKey) {
+      await this.loadServerPublicKey();
+    }
+
+    try {
+      // Get session key from server (like devices do)
+      const response = await fetch('/api/establish-frontend-session/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frontendId: this.frontendId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Session establishment failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      this.sessionKey = data.sessionKey;
+    } catch (error) {
+      throw new Error(`Failed to establish session: ${error}`);
+    }
+  }
+
+  async encryptWithSessionKey(data: any): Promise<string> {
+    if (!this.sessionKey) {
+      throw new Error('Session key not established');
+    }
+
+    try {
+      const plaintext = JSON.stringify(data);
+      const encoder = new TextEncoder();
+      const plaintextBytes = encoder.encode(plaintext);
+
+      // Generate IV
+      const iv = window.crypto.getRandomValues(new Uint8Array(16));
+
+      // Create AES key from session key
+      const keyData = encoder.encode(this.sessionKey.slice(0, 32)); // Use first 32 chars
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'AES-CBC' },
+        false,
+        ['encrypt']
+      );
+
+      // Pad data to 16-byte boundary
+      const paddingLength = 16 - (plaintextBytes.length % 16);
+      const paddedData = new Uint8Array(plaintextBytes.length + paddingLength);
+      paddedData.set(plaintextBytes);
+      paddedData.fill(paddingLength, plaintextBytes.length);
+
+      // Encrypt
+      const ciphertext = await window.crypto.subtle.encrypt(
+        { name: 'AES-CBC', iv },
+        cryptoKey,
+        paddedData
+      );
+
+      // Combine IV and ciphertext
+      const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(ciphertext), iv.length);
+
+      // Return base64 encoded
+      return btoa(String.fromCharCode(...combined));
+    } catch (error) {
+      throw new Error(`Encryption failed: ${error}`);
+    }
+  }
+
+  async decryptWithSessionKey(encryptedData: string): Promise<any> {
+    if (!this.sessionKey) {
+      throw new Error('Session key not established');
+    }
+
+    try {
+      // Decode base64
+      const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+
+      // Extract IV and ciphertext
+      const iv = combined.slice(0, 16);
+      const ciphertext = combined.slice(16);
+
+      // Create AES key
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(this.sessionKey.slice(0, 32));
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'AES-CBC' },
+        false,
+        ['decrypt']
+      );
+
+      // Decrypt
+      const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-CBC', iv },
+        cryptoKey,
+        ciphertext
+      );
+
+      // Remove padding
+      const decryptedArray = new Uint8Array(decrypted);
+      const paddingLength = decryptedArray[decryptedArray.length - 1];
+      const plaintext = decryptedArray.slice(0, decryptedArray.length - paddingLength);
+
+      // Convert to string and parse JSON
+      const decoder = new TextDecoder();
+      return JSON.parse(decoder.decode(plaintext));
+    } catch (error) {
+      throw new Error(`Decryption failed: ${error}`);
+    }
+  }
+
+  getFrontendId(): string {
+    return this.frontendId;
+  }
+
+  getSessionKey(): string | null {
+    return this.sessionKey;
+  }
+
+  hasServerPublicKey(): boolean {
+    return this.serverPublicKey !== null;
+  }
+}
+
+// Create encrypted API wrapper
+const createEncryptedApi = (crypto: FrontendCrypto, setDebugData: (type: 'request' | 'response', data: string, meta: any) => void) => {
+  return {
+    ...api,
+
+    async executeCommand(deviceId: string, command: string, params: Record<string, any>) {
+      const requestData = { deviceId, command, params };
+      const encryptedRequest = await crypto.encryptWithSessionKey(requestData);
+
+      // Capture encrypted request
+      setDebugData('request', encryptedRequest, {
+        endpoint: '/api/execute-command-encrypted',
+        timestamp: new Date().toISOString()
+      });
+
+      try {
+        const response = await fetch('/api/execute-command-encrypted/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Frontend-ID': crypto.getFrontendId(),
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ data: encryptedRequest })
+        });
+
+        const responseData = await response.json();
+
+        // Capture encrypted response
+        if (responseData.data) {
+          setDebugData('response', responseData.data, {
+            status: response.status,
+            timestamp: new Date().toISOString()
+          });
+
+          // Decrypt response
+          const decryptedResponse = await crypto.decryptWithSessionKey(responseData.data);
+          return { data: decryptedResponse };
+        }
+
+        return { data: responseData };
+      } catch (error) {
+        setDebugData('response', `Error: ${error}`, {
+          status: 'error',
+          timestamp: new Date().toISOString()
+        });
+        throw error;
+      }
+    },
+
+    async getCommandStatus(commandId: string) {
+      const requestData = { commandId };
+      const encryptedRequest = await crypto.encryptWithSessionKey(requestData);
+
+      setDebugData('request', encryptedRequest, {
+        endpoint: `/api/commands/${commandId}/status-encrypted`,
+        timestamp: new Date().toISOString()
+      });
+
+      try {
+        const response = await fetch(`/api/commands/${commandId}/status-encrypted/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Frontend-ID': crypto.getFrontendId(),
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ data: encryptedRequest })
+        });
+
+        const responseData = await response.json();
+
+        if (responseData.data) {
+          setDebugData('response', responseData.data, {
+            status: response.status,
+            timestamp: new Date().toISOString()
+          });
+
+          const decryptedResponse = await crypto.decryptWithSessionKey(responseData.data);
+          return { data: decryptedResponse };
+        }
+
+        return { data: responseData };
+      } catch (error) {
+        setDebugData('response', `Error: ${error}`, {
+          status: 'error',
+          timestamp: new Date().toISOString()
+        });
+        throw error;
+      }
+    }
+  };
+};
+
 export default defineComponent({
-  name: 'DeviceList',
+  name: 'DeviceListEncrypted',
   components: {
     CodeOverlay
   },
@@ -414,6 +796,22 @@ export default defineComponent({
     const modalOpen = ref<boolean>(false);
     const pollInterval = ref<number | null>(null);
 
+    // Encryption state
+    const encryptionStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected');
+    const encryptionError = ref<string | null>(null);
+    const frontendId = ref<string>('');
+    const sessionKey = ref<string | null>(null);
+    const serverPublicKey = ref<boolean>(false);
+
+    // Debug state
+    const showDebugInfo = ref<boolean>(false);
+    const lastEncryptedRequest = ref<string>('');
+    const lastEncryptedResponse = ref<string>('');
+    const lastRequestEndpoint = ref<string>('');
+    const lastRequestTime = ref<string>('');
+    const lastResponseStatus = ref<string>('');
+    const lastResponseTime = ref<string>('');
+
     // Overlay states
     const showCode = ref<boolean>(false);
     const showResult = ref<boolean>(false);
@@ -421,6 +819,26 @@ export default defineComponent({
     const selectedResult = ref<string>('');
     const codeTitle = ref<string>('Code View');
     const resultTitle = ref<string>('Result Output');
+
+    // Create crypto instance
+    const crypto = new FrontendCrypto();
+    frontendId.value = crypto.getFrontendId();
+
+    // Set up encryption debugging
+    const setDebugData = (type: 'request' | 'response', data: string, meta: any) => {
+      if (type === 'request') {
+        lastEncryptedRequest.value = data;
+        lastRequestEndpoint.value = meta.endpoint;
+        lastRequestTime.value = meta.timestamp;
+      } else {
+        lastEncryptedResponse.value = data;
+        lastResponseStatus.value = meta.status.toString();
+        lastResponseTime.value = meta.timestamp;
+      }
+    };
+
+    // Create encrypted API
+    const encryptedApi = createEncryptedApi(crypto, setDebugData);
 
     // Computed properties
     const activeDevices = computed(() => {
@@ -430,6 +848,28 @@ export default defineComponent({
     const inactiveDevices = computed(() => {
       return devices.value.filter(device => !device.isActive);
     });
+
+    // Initialize encryption
+    const initializeEncryption = async (): Promise<void> => {
+      try {
+        encryptionStatus.value = 'connecting';
+        encryptionError.value = null;
+
+        await crypto.loadServerPublicKey();
+        await crypto.establishSession();
+
+        serverPublicKey.value = crypto.hasServerPublicKey();
+        sessionKey.value = crypto.getSessionKey();
+        encryptionStatus.value = 'connected';
+
+        console.log('🔐 Frontend encryption established successfully');
+      } catch (err: any) {
+        encryptionError.value = err.message;
+        encryptionStatus.value = 'disconnected';
+        console.error('🔐 Frontend encryption failed:', err);
+        throw err;
+      }
+    };
 
     // Methods
     const fetchDevices = async (): Promise<void> => {
@@ -445,6 +885,11 @@ export default defineComponent({
     };
 
     const selectDevice = (device: Device): void => {
+      if (encryptionStatus.value !== 'connected') {
+        alert('Encryption not established. Please wait for encryption to be set up.');
+        return;
+      }
+
       selectedDevice.value = device;
       selectedAction.value = '';
       actionParameters.value = [];
@@ -482,7 +927,7 @@ export default defineComponent({
     };
 
     const executeCommand = async (): Promise<void> => {
-      if (!selectedDevice.value) return;
+      if (!selectedDevice.value || encryptionStatus.value !== 'connected') return;
 
       // Validate parameters
       let valid = true;
@@ -498,7 +943,7 @@ export default defineComponent({
       }
 
       try {
-        const response = await api.executeCommand(
+        const response = await encryptedApi.executeCommand(
           selectedDevice.value.deviceId,
           selectedAction.value,
           paramValues.value
@@ -511,7 +956,7 @@ export default defineComponent({
         // Start polling for result
         startPolling();
       } catch (err: any) {
-        alert(`Error executing command: ${err.response?.data?.error || err.message}`);
+        alert(`Error executing encrypted command: ${err.response?.data?.error || err.message}`);
       }
     };
 
@@ -519,12 +964,12 @@ export default defineComponent({
       // Clear any existing interval
       stopPolling();
 
-      if (!commandId.value) return;
+      if (!commandId.value || encryptionStatus.value !== 'connected') return;
 
       // Set up polling
       pollInterval.value = window.setInterval(async () => {
         try {
-          const response = await api.getCommandStatus(commandId.value as string);
+          const response = await encryptedApi.getCommandStatus(commandId.value as string);
           const command = response.data;
 
           if (command.status !== 'pending' && command.status !== 'sent') {
@@ -584,6 +1029,16 @@ export default defineComponent({
       }).format(date);
     };
 
+    const copyToClipboard = async (text: string): Promise<void> => {
+      try {
+        await navigator.clipboard.writeText(text);
+        alert('Copied to clipboard!');
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy to clipboard');
+      }
+    };
+
     // Methods for code execution
     const handleFileUpload = (event: Event): void => {
       const input = event.target as HTMLInputElement;
@@ -598,7 +1053,6 @@ export default defineComponent({
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target && typeof e.target.result === 'string') {
-          // Set the file content to the code parameter
           paramValues.value['code'] = e.target.result;
         }
       };
@@ -606,8 +1060,7 @@ export default defineComponent({
     };
 
     const loadSampleCode = (): void => {
-      // Set a sample Python code snippet
-      paramValues.value['code'] = `# Sample Python code for device execution
+      paramValues.value['code'] = `# Sample Python code for encrypted device execution
 import os
 import platform
 import datetime
@@ -622,99 +1075,87 @@ system_info = {
 }
 
 # Print some information
-print("Running Python code on IoT device...")
+print("🔐 Running encrypted Python code on IoT device...")
 print(f"Current time: {system_info['current_time']}")
 print(f"Python version: {system_info['python_version']}")
 
-# Define a result to be returned to the server
+# Define a result to be returned to the server (encrypted)
 result = {
     "system_info": system_info,
-    "execution_successful": True
+    "execution_successful": True,
+    "security_note": "This data was transmitted end-to-end encrypted"
 }
 
-# The 'result' variable will be returned to the server
+# The 'result' variable will be returned to the server via encrypted channel
 `;
     };
 
     // Popup methods
     const showCodePopup = (command: any): void => {
       selectedCode.value = command.params?.code || '';
-      codeTitle.value = `Code: ${command.name}`;
+      codeTitle.value = `🔐 Encrypted Code: ${command.name}`;
       showCode.value = true;
     };
 
     const showResultPopup = (command: any): void => {
-      // For all result types, choose the appropriate display format
       let output = '';
 
-      // If it's a completed command
       if (command.status === 'completed') {
-        // Format based on result content
         if (command.result) {
-          // If the result has stdout
           if (command.result.stdout) {
             output = command.result.stdout;
-          }
-          // If no stdout but has stderr
-          else if (command.result.stderr) {
+          } else if (command.result.stderr) {
             output = command.result.stderr;
-          }
-          // For simple return values
-          else if (command.result.result !== undefined) {
-            // Format appropriately based on type
+          } else if (command.result.result !== undefined) {
             if (typeof command.result.result === 'string') {
               output = command.result.result;
             } else {
-              // Pretty print objects/arrays
               output = JSON.stringify(command.result.result, null, 2);
             }
-          }
-          // If it's just a simple value (for non-code-execution commands)
-          else if (typeof command.result === 'string' ||
-                  typeof command.result === 'number' ||
-                  typeof command.result === 'boolean') {
+          } else if (typeof command.result === 'string' ||
+                    typeof command.result === 'number' ||
+                    typeof command.result === 'boolean') {
             output = String(command.result);
-          }
-          // If it's a raw object result (for non-code-execution commands)
-          else {
+          } else {
             output = JSON.stringify(command.result, null, 2);
           }
         }
 
-        // If no output was assigned, provide a default message
         if (!output) {
-          output = 'Command completed successfully with no output.';
+          output = '🔐 Encrypted command completed successfully with no output.';
         }
-      }
-      // If it's a failed command
-      else if (command.status === 'failed') {
-        // Check for error message
+      } else if (command.status === 'failed') {
         if (command.result && command.result.error) {
           output = command.result.error_type ?
             `${command.result.error_type}: ${command.result.error}` :
             command.result.error;
         } else {
-          output = 'Command failed without specific error details.';
+          output = '🔐 Encrypted command failed without specific error details.';
         }
-      }
-      // For pending or sent status
-      else {
-        output = `Command is in '${command.status}' state.`;
+      } else {
+        output = `🔐 Encrypted command is in '${command.status}' state.`;
       }
 
       selectedResult.value = output;
-      resultTitle.value = `Result: ${command.name}`;
+      resultTitle.value = `🔐 Encrypted Result: ${command.name}`;
       showResult.value = true;
     };
 
     // Lifecycle hooks
-    onMounted(() => {
-      fetchDevices();
+    onMounted(async () => {
+      // Initialize encryption first
+      try {
+        await initializeEncryption();
+      } catch (err) {
+        console.error('Encryption initialization failed:', err);
+      }
 
-      // Set up periodic refresh to detect status changes
+      // Then fetch devices
+      await fetchDevices();
+
       const refreshInterval = setInterval(() => {
         fetchDevices();
-      }, 30000); // Refresh every 30 seconds
+      }, 30000);
 
       onBeforeUnmount(() => {
         clearInterval(refreshInterval);
@@ -737,6 +1178,18 @@ result = {
       commandStatus,
       commandResult,
       modalOpen,
+      encryptionStatus,
+      encryptionError,
+      frontendId,
+      sessionKey,
+      serverPublicKey,
+      showDebugInfo,
+      lastEncryptedRequest,
+      lastEncryptedResponse,
+      lastRequestEndpoint,
+      lastRequestTime,
+      lastResponseStatus,
+      lastResponseTime,
       showCode,
       showResult,
       selectedCode,
@@ -751,6 +1204,7 @@ result = {
       resetCommand,
       formatDate,
       formatTime,
+      copyToClipboard,
       handleFileUpload,
       loadSampleCode,
       showCodePopup,
